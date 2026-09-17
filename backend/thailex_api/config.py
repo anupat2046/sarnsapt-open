@@ -16,7 +16,7 @@ class Settings:
     thaillm_api_key: str | None = None
     thaillm_model: str = "Pathumma-ThaiLLM-qwen3-8b-think-3.0.0"
     thaillm_base_url: str = "https://thaillm.or.th/api/v1"
-    thaillm_max_tokens: int = 700
+    thaillm_max_tokens: int = 1200
     thaillm_temperature: float = 0.0
 
     @classmethod
@@ -32,7 +32,7 @@ class Settings:
         request_timeout = float(os.getenv("THAILEX_REQUEST_TIMEOUT_SECONDS", "30"))
         if request_timeout <= 0:
             raise ValueError("THAILEX_REQUEST_TIMEOUT_SECONDS must be greater than 0")
-        thaillm_max_tokens = int(os.getenv("THAILLM_MAX_TOKENS", "700"))
+        thaillm_max_tokens = int(os.getenv("THAILLM_MAX_TOKENS", "1200"))
         if not 64 <= thaillm_max_tokens <= 4096:
             raise ValueError("THAILLM_MAX_TOKENS must be between 64 and 4096")
         thaillm_temperature = float(os.getenv("THAILLM_TEMPERATURE", "0.0"))

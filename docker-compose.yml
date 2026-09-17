@@ -34,7 +34,7 @@ services:
       THAILLM_API_KEY: "${THAILLM_API_KEY:-}"
       THAILLM_MODEL: "${THAILLM_MODEL:-Pathumma-ThaiLLM-qwen3-8b-think-3.0.0}"
       THAILLM_BASE_URL: "${THAILLM_BASE_URL:-https://thaillm.or.th/api/v1}"
-      THAILLM_MAX_TOKENS: "${THAILLM_MAX_TOKENS:-700}"
+      THAILLM_MAX_TOKENS: "${THAILLM_MAX_TOKENS:-1200}"
       THAILLM_TEMPERATURE: "${THAILLM_TEMPERATURE:-0.0}"
 
   frontend:

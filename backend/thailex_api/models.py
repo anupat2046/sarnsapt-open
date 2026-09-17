@@ -252,6 +252,7 @@ class AskDiagnostics(ApiModel):
     requested_provider: Literal["heuristic", "openai", "thaillm"]
     actual_selector: Literal["heuristic", "openai", "thaillm", "none"]
     model: str | None = None
+    answer_mode: Literal["model", "template"] = "template"
     fallback_used: bool = False
     fallback_reason: str | None = None
     latency_ms: int = Field(ge=0)

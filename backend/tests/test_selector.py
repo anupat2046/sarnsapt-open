@@ -126,6 +126,9 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
                 task["candidates"][0]["evidence"][0]["evidence_ref"], "S1-E1"
             )
             self.assertNotIn("sense_uri", task["candidates"][0])
+            self.assertEqual(
+                task["candidates"][0]["relations"][0]["term"], "ไข"
+            )
             return httpx.Response(
                 200,
                 json={
@@ -138,7 +141,8 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
                                     '{"intent":"define","selected_candidate_id":"S1",'
                                     '"confidence":0.94,"rationale":"ตรงกับบริบท",'
                                     '"cue_words":["ความหมาย"],'
-                                    '"evidence_refs":["S1-E1"]}\n'
+                                    '"evidence_refs":["S1-E1"],'
+                                    '"grounded_answer":"คำว่า ขัน ในประโยคนี้หมายถึงหมุนสิ่งยึดให้แน่นครับ"}\n'
                                     "```"
                                 ),
                             }
@@ -162,12 +166,16 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
                 "แล้วความหมายนี้ล่ะ",
                 candidates,
                 history=[ConversationTurn(role="user", content="พ่อขันนอต")],
+                relation_facts={candidates[0].sense_uri: [{
+                    "relation": "คำที่เกี่ยวข้อง", "term": "ไข",
+                    "source_graph": "https://example.test/graph",
+                }]},
             )
         finally:
             await selector.close()
         self.assertEqual(result.selector, "thaillm")
         self.assertEqual(result.intent, "define")
-        self.assertIsNone(result.grounded_answer)
+        self.assertIn("หมุนสิ่งยึดให้แน่น", result.grounded_answer)
         self.assertEqual(result.evidence_ids, ["ev-1"])
         self.assertEqual(validate_selection(result, candidates), [])
 

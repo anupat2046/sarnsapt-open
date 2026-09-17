@@ -17,7 +17,9 @@ docker compose --profile frontend up -d --build
 
 เปิดหน้าเว็บที่ `http://localhost:3000` และ GraphDB Workbench ที่ `http://localhost:7200` ตัวอย่างเริ่มต้นใน GraphDB เป็นข้อมูลสังเคราะห์ `data/sample/thailex-sample.ttl` หากยังไม่ตั้งค่า API ของ LLM ระบบใช้ตัวเลือกแบบ heuristic ตามหลักฐานในกราฟ ไม่ได้อ้างว่าเรียก LLM
 
-หากต้องการใช้ ThaiLLM ให้ใส่ `THAILLM_API_KEY` ใน `.env` และตั้ง `THAILEX_SELECTOR_MODE=thaillm` ด้วยตัวเอง ห้าม commit `.env` หรือ key
+หากต้องการใช้ ThaiLLM ให้ใส่ `THAILLM_API_KEY` ใน `.env` และตั้ง `THAILEX_SELECTOR_MODE=thaillm` ด้วยตัวเอง ห้าม commit `.env` หรือ key การเปิดโหมดนี้จะส่งคำถาม ประวัติสนทนา และข้อความหลักฐานบางส่วนจากชุดข้อมูล local ไปยัง API ภายนอก จึงต้องตรวจสิทธิ์และความเหมาะสมของข้อมูลก่อน
+
+เมื่อเปิด ThaiLLM โมเดลจะเลือกความหมายและเขียนคำตอบตามคำถาม/บริบทสนทนาในหนึ่ง API call โดย Backend ตรวจ Sense และรหัสหลักฐานก่อนแสดงผล หากโมเดลไม่ส่งคำตอบที่ใช้ได้ ระบบจะใช้ข้อความจากกราฟแทน สถานะ `answer_mode` ใน API บอกที่มาของรูปแบบคำตอบ การตรวจรหัสหลักฐานไม่ใช่การพิสูจน์ว่าข้อความอิสระของโมเดลถูกต้องทุกคำ
 
 หยุดระบบด้วย `./scripts/stop.ps1` โดยไม่ลบ Docker volume
 

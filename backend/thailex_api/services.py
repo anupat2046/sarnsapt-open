@@ -28,6 +28,7 @@ from .retrieval import CandidateRetriever
 from .selector import (
     HeuristicSenseSelector,
     SenseSelector,
+    ThaiLLMChatSenseSelector,
     ThaiLLMStructuredOutputError,
     validate_selection,
 )
@@ -37,7 +38,6 @@ _OTHER_SENSE_MARKERS = (
     "ความหมายอื่น", "อีกความหมาย", "หมายถึงอะไรอีก", "sense อื่น",
 )
 _RETAIN_SENSE_MARKERS = ("คำนี้", "คำนั้น", "คำที่เกี่ยวข้อง")
-_FOLLOWUP_MARKERS = _OTHER_SENSE_MARKERS + _RETAIN_SENSE_MARKERS
 _COMPARE_MARKERS = (
     "เปรียบเทียบ", "ต่างกัน", "ทุกความหมาย", "ความหมายทั้งหมด", "มีกี่ความหมาย",
 )
@@ -152,7 +152,12 @@ def _context_lemma_for(request: AskRequest) -> str | None:
         return request.lemma
     normalized = request.query.casefold()
     explicitly_names_word = "คำว่า" in normalized
-    is_followup = any(marker in normalized for marker in _FOLLOWUP_MARKERS)
+    if re.search(r"เกี่ยวข้องกับ\s*\S+", normalized):
+        return None
+    is_followup = (
+        normalized.lstrip().startswith("แล้ว")
+        or any(marker in normalized for marker in (*_OTHER_SENSE_MARKERS, "คำนี้", "คำนั้น"))
+    )
     return request.context_lemma if is_followup and not explicitly_names_word else None
 
 
@@ -186,11 +191,13 @@ def _grounded_cue_words(
 
 
 def _apply_sense_context(
-    request: AskRequest, candidates: list[SenseCandidate]
+    request: AskRequest, candidates: list[SenseCandidate], *, detected_lemma: str | None = None
 ) -> list[SenseCandidate]:
     if not request.context_sense_uri:
         return candidates
     normalized = request.query.casefold()
+    if detected_lemma != request.context_lemma:
+        return candidates
     if any(marker in normalized for marker in _RETAIN_SENSE_MARKERS):
         return sorted(
             candidates,
@@ -201,6 +208,16 @@ def _apply_sense_context(
         return sorted(
             candidates,
             key=lambda item: item.sense_uri == request.context_sense_uri,
+        )
+    if (
+        request.history
+        and detected_lemma == request.context_lemma
+        and detect_intent(request.query) not in {"define_all", "compare"}
+    ):
+        return sorted(
+            candidates,
+            key=lambda item: item.sense_uri == request.context_sense_uri,
+            reverse=True,
         )
     return candidates
 
@@ -305,12 +322,29 @@ class AskService:
         detected, candidates = await self.retriever.retrieve(
             request.query, lemma=retrieval_lemma, max_candidates=request.max_candidates
         )
-        candidates = _apply_sense_context(request, candidates)
+        if (
+            not candidates and request.context_lemma and request.history
+            and "คำว่า" not in request.query
+        ):
+            detected, candidates = await self.retriever.retrieve(
+                request.query,
+                lemma=request.context_lemma,
+                max_candidates=request.max_candidates,
+            )
+        candidates = _apply_sense_context(request, candidates, detected_lemma=detected)
         selection_candidates = [c for c in candidates if c.source != "demo"] or candidates
-        retrieval_ms = max(0, round((perf_counter() - retrieval_started) * 1000))
 
         warnings: list[str] = []
         wants_llm = self.default_to_llm if request.use_llm is None else request.use_llm
+        relation_facts: dict[str, list[dict[str, str]]] = {}
+        if wants_llm and isinstance(self.llm_selector, ThaiLLMChatSenseSelector) and selection_candidates:
+            context_graph = await self.repository.graph(
+                [candidate.sense_uri for candidate in selection_candidates[:8]],
+                hops=2,
+                max_edges=min(100, max(40, self.max_graph_edges)),
+            )
+            relation_facts = self._relation_context(context_graph, selection_candidates)
+        retrieval_ms = max(0, round((perf_counter() - retrieval_started) * 1000))
         llm_ms = 0
         if not selection_candidates:
             decision = SelectionDecision(
@@ -330,9 +364,15 @@ class AskService:
                 )
             llm_started = perf_counter()
             try:
-                decision = await self.llm_selector.select(
-                    request.query, selection_candidates, history=request.history
-                )
+                if isinstance(self.llm_selector, ThaiLLMChatSenseSelector):
+                    decision = await self.llm_selector.select(
+                        request.query, selection_candidates, history=request.history,
+                        relation_facts=relation_facts,
+                    )
+                else:
+                    decision = await self.llm_selector.select(
+                        request.query, selection_candidates, history=request.history
+                    )
             except ThaiLLMStructuredOutputError as exc:
                 raise AskServiceError(
                     "llm_structured_output_invalid",
@@ -370,7 +410,8 @@ class AskService:
         intent = decision.intent or preliminary_intent
         # A clearly context-free definition request must never be collapsed to
         # one arbitrary sense, even if a selector returns `define` or a sense ID.
-        if preliminary_intent == "define_all" and intent == "define":
+        intent_corrected = preliminary_intent == "define_all" and intent == "define"
+        if intent_corrected:
             intent = "define_all"
         if intent == "define_all":
             overview_evidence_ids: list[str] = []
@@ -434,6 +475,14 @@ class AskService:
             related_terms=related_terms, decision=decision, citations=citations, graph=graph,
         )
         answer = self._compose_answer(detail, cue_words=decision.cue_words)
+        answer_mode = "template"
+        if (
+            decision.selector == "thaillm"
+            and not intent_corrected
+            and self._usable_model_answer(decision.grounded_answer, lemma=detected)
+        ):
+            answer = decision.grounded_answer.strip()
+            answer_mode = "model"
         safe_rationale = self._compose_selection_rationale(
             detail, cue_words=decision.cue_words
         )
@@ -461,6 +510,7 @@ class AskService:
                 requested_provider=requested_provider,
                 actual_selector=decision.selector,
                 model=self.model,
+                answer_mode=answer_mode,
                 fallback_used=False,
                 fallback_reason=None,
                 latency_ms=total_ms,
@@ -472,7 +522,7 @@ class AskService:
                 graph_ms=graph_ms,
                 total_ms=total_ms,
             ),
-            evidence_validated=not validation_errors,
+            evidence_validated=bool(citations) and not validation_errors,
             validation_warnings=warnings,
         )
 
@@ -614,6 +664,50 @@ class AskService:
         return result[:12]
 
     @staticmethod
+    def _relation_context(
+        graph: GraphResult, candidates: list[SenseCandidate]
+    ) -> dict[str, list[dict[str, str]]]:
+        labels = {node.uri: node.label for node in graph.nodes}
+        references = {
+            edge.source: edge.target
+            for edge in graph.edges
+            if _tail(edge.predicate) == "reference"
+        }
+        result: dict[str, list[dict[str, str]]] = {}
+        for candidate in candidates:
+            concept = references.get(candidate.sense_uri)
+            if not concept:
+                continue
+            relations: list[dict[str, str]] = []
+            for edge in graph.edges:
+                relation = _tail(edge.predicate)
+                if edge.source != concept or relation not in _LEXICAL_RELATIONS:
+                    continue
+                relations.append({
+                    "relation": _RELATION_LABELS.get(relation, relation),
+                    "term": labels.get(edge.target, _tail(edge.target)),
+                    "source_graph": edge.source_graph,
+                })
+                if len(relations) >= 6:
+                    break
+            if relations:
+                result[candidate.sense_uri] = relations
+        return result
+
+    @staticmethod
+    def _usable_model_answer(answer: str | None, *, lemma: str | None) -> bool:
+        if not answer or not lemma:
+            return False
+        cleaned = answer.strip()
+        return (
+            len(cleaned) >= 30
+            and lemma in cleaned
+            and "http://" not in cleaned
+            and "https://" not in cleaned
+            and not cleaned.startswith("{")
+        )
+
+    @staticmethod
     def _build_detail(
         *, intent: str, lemma: str | None, selected: SenseCandidate | None,
         candidates: list[SenseCandidate], all_senses: list[SenseCandidate],
@@ -735,6 +829,11 @@ class AskService:
     def _compose_answer(
         detail: AnswerDetail, *, cue_words: list[str] | None = None
     ) -> str:
+        if detail.title == "ยังไม่พบคำที่ต้องการ":
+            return (
+                "ยังไม่พบคำที่ถามในชุดข้อมูลที่นำเข้าครับ "
+                "ลองระบุคำเป้าหมายให้ชัดขึ้น หรือเพิ่มชุดข้อมูลที่มีคำนี้ก่อน"
+            )
         cues = list(dict.fromkeys(cue_words or []))[:3]
         primary = next(
             (

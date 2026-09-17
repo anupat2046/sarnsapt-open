@@ -38,6 +38,7 @@ import { GraphExplorer } from "./GraphExplorer";
 type ChatMessage = ConversationTurn & {
   id: string;
   selector?: AskResponse["selection"]["selector"];
+  answerMode?: AskResponse["diagnostics"]["answer_mode"];
   intent?: AskResponse["detail"]["intent"];
   validated?: boolean;
   fallback?: boolean;
@@ -49,10 +50,11 @@ type ChatMessage = ConversationTurn & {
 function selectorLabel(
   selector?: AskResponse["selection"]["selector"],
   intent?: AskResponse["detail"]["intent"],
+  answerMode?: AskResponse["diagnostics"]["answer_mode"],
 ) {
+  if (selector === "thaillm") return answerMode === "model" ? "ThaiLLM + GraphDB" : "ThaiLLM เลือกความหมาย · คำตอบจากกราฟ";
   if (intent === "compare") return "Compare + GraphDB";
   if (intent === "related") return "Relations + GraphDB";
-  if (selector === "thaillm") return "ThaiLLM + GraphDB";
   if (selector === "openai") return "LLM + GraphDB";
   if (selector === "heuristic") return "Heuristic + GraphDB";
   return "GraphDB";
@@ -691,6 +693,7 @@ export function SearchWorkspace() {
             role: "assistant",
             content: response.answer,
             selector: response.selection.selector,
+            answerMode: response.diagnostics.answer_mode,
             intent: response.detail.intent,
             validated: response.evidence_validated,
             fallback: response.diagnostics.fallback_used,
@@ -888,7 +891,7 @@ export function SearchWorkspace() {
           <header className="conversation-header">
             <div className="assistant-identity">
               <span><Sparkles aria-hidden="true" /></span>
-              <div><strong>สานศัพท์</strong><small><i /> {result ? selectorLabel(result.selection.selector, result.detail.intent) : "GraphDB"}</small></div>
+              <div><strong>สานศัพท์</strong><small><i /> {result ? selectorLabel(result.selection.selector, result.detail.intent, result.diagnostics.answer_mode) : "GraphDB"}</small></div>
             </div>
             <button type="button" onClick={clearConversation} disabled={loading}>
               <RotateCcw aria-hidden="true" /> เริ่มใหม่
@@ -905,8 +908,8 @@ export function SearchWorkspace() {
                     : <p>{message.content}</p>}
                   {message.role === "assistant" && (
                     <div className="chat-answer-meta">
-                      <span>{selectorLabel(message.selector, message.intent)}</span>
-                      {message.validated && <span className="chat-verified"><CheckCircle2 /> Evidence ผ่านการตรวจ</span>}
+                      <span>{selectorLabel(message.selector, message.intent, message.answerMode)}</span>
+                      {message.validated && <span className="chat-verified"><CheckCircle2 /> Sense/อ้างอิงตรวจแล้ว</span>}
                       {message.latencyMs !== undefined && <span>{(message.latencyMs / 1000).toFixed(1)}s</span>}
                     </div>
                   )}

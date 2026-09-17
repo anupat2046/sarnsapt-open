@@ -41,6 +41,7 @@ class _ThaiLLMSelectionPayload(BaseModel):
     # here, then normalize it deterministically below.  Unknown references still
     # fail validation and never reach the answer.
     evidence_refs: list[str] = Field(min_length=1, max_length=64)
+    grounded_answer: str | None = Field(default=None, max_length=2200)
 
 
 class HeuristicSenseSelector:
@@ -192,7 +193,7 @@ class OpenAIResponsesSenseSelector:
 
 
 class ThaiLLMChatSenseSelector:
-    """Selects one retrieved Sense through ThaiLLM's chat-completions API."""
+    """Selects a retrieved Sense and drafts a grounded conversational answer."""
 
     def __init__(
         self,
@@ -201,7 +202,7 @@ class ThaiLLMChatSenseSelector:
         model: str,
         base_url: str = "https://thaillm.or.th/api/v1",
         timeout: float = 30.0,
-        max_tokens: int = 700,
+        max_tokens: int = 1200,
         temperature: float = 0.1,
     ) -> None:
         self.model = model
@@ -222,6 +223,7 @@ class ThaiLLMChatSenseSelector:
         candidates: list[SenseCandidate],
         *,
         history: list[ConversationTurn] | None = None,
+        relation_facts: dict[str, list[dict[str, str]]] | None = None,
     ) -> SelectionDecision:
         if not candidates:
             return await HeuristicSenseSelector().select(
@@ -241,15 +243,15 @@ class ThaiLLMChatSenseSelector:
                 if item.source_graph not in represented_graphs:
                     diverse_evidence.append(item)
                     represented_graphs.add(item.source_graph)
-                if len(diverse_evidence) >= 8:
+                if len(diverse_evidence) >= 5:
                     break
-            if len(diverse_evidence) < 8:
+            if len(diverse_evidence) < 5:
                 selected_ids = {item.evidence_id for item in diverse_evidence}
                 diverse_evidence.extend(
                     item for item in candidate.evidence
                     if item.evidence_id not in selected_ids
                 )
-            for evidence_index, item in enumerate(diverse_evidence[:8], start=1):
+            for evidence_index, item in enumerate(diverse_evidence[:5], start=1):
                 evidence_ref = f"{candidate_id}-E{evidence_index}"
                 evidence_by_alias[evidence_ref] = (candidate_id, item.evidence_id)
                 evidence.append(
@@ -267,7 +269,9 @@ class ThaiLLMChatSenseSelector:
                     "lemma": candidate.lemma,
                     "pos": candidate.pos,
                     "source": candidate.source,
+                    "edition": candidate.edition,
                     "evidence": evidence,
+                    "relations": (relation_facts or {}).get(candidate.sense_uri, [])[:6],
                 }
             )
         task = {
@@ -288,6 +292,11 @@ class ThaiLLMChatSenseSelector:
                     "1-8 supplied evidence_ref values; for define/related they must belong "
                     "to the selected candidate"
                 ),
+                "grounded_answer": (
+                    "Thai conversational answer, 1-3 short paragraphs. Address every part of the "
+                    "question using only supplied evidence and relations; if a requested fact is "
+                    "missing, say so plainly. Do not invent source agreement or relationships."
+                ),
             },
             "output_example": {
                 "intent": "define_all",
@@ -296,6 +305,7 @@ class ThaiLLMChatSenseSelector:
                 "cue_words": [],
                 "rationale": "ผู้ใช้ถามความหมายทั่วไปโดยไม่มีบริบทให้เลือกความหมายเดียว",
                 "evidence_refs": ["S1-E1", "S2-E1"],
+                "grounded_answer": "คำนี้มีหลายความหมายในข้อมูลที่พบ จึงขอแสดงแยกกันตามหลักฐานแต่ละรายการครับ",
             },
         }
         messages = [
@@ -313,6 +323,12 @@ class ThaiLLMChatSenseSelector:
                     "วลีคำถามทั่วไปว่าเป็นคำใบ้ ใช้ intent=define เมื่อมีบริบทจริงที่ช่วยเลือก "
                     "Sense เดียว ใช้ related เมื่อถามความสัมพันธ์ และ compare เมื่อขอเปรียบเทียบ "
                     "กรณี compare ต้องตั้ง selected_candidate_id=null และอ้าง evidence จากหลาย Candidate "
+                    "ตอบคำถามผู้ใช้ให้เหมือนกำลังสนทนา ไม่ต้องยึดรูปแบบคำตอบเดิมทุกครั้ง "
+                    "หากเป็นคำถามต่อเนื่องให้ใช้ประวัติสนทนาและความหมายที่เลือกเป็นบริบท "
+                    "grounded_answer ต้องตอบครบทุกส่วนของคำถาม ใช้เฉพาะข้อความใน evidence "
+                    "กับ relations ที่ให้มาเท่านั้น ถ้าข้อมูลส่วนใดไม่มีให้บอกว่าไม่พบในข้อมูล "
+                    "อย่าอ้างว่าแหล่งต่าง ๆ เห็นตรงกันหากไม่มีข้อมูลจับคู่ที่ยืนยันแล้ว "
+                    "หลีกเลี่ยงรายการแหล่งข้อมูลยาว ๆ เพราะผู้ใช้เปิดดูในแผงหลักฐานได้ "
                     "ตอบเป็น JSON object ก้อนเดียวตาม output_contract ห้ามใช้ Markdown"
                 ),
             },
@@ -467,6 +483,7 @@ class ThaiLLMChatSenseSelector:
             selector="thaillm",
             intent=payload.intent,
             cue_words=payload.cue_words,
+            grounded_answer=payload.grounded_answer.strip() if payload.grounded_answer else None,
         )
 
     async def close(self) -> None:

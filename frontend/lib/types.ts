@@ -135,6 +135,7 @@ export interface AskDiagnostics {
   requested_provider: "heuristic" | "openai" | "thaillm";
   actual_selector: "heuristic" | "openai" | "thaillm" | "none";
   model: string | null;
+  answer_mode: "model" | "template";
   fallback_used: boolean;
   fallback_reason: string | null;
   latency_ms: number;

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import unittest
+
+import httpx
 
 from thailex_api.models import (
     AnswerDetail,
@@ -10,11 +13,12 @@ from thailex_api.models import (
     SelectionDecision,
     SourceSupport,
 )
-from thailex_api.selector import HeuristicSenseSelector, ThaiLLMStructuredOutputError
+from thailex_api.selector import HeuristicSenseSelector, ThaiLLMChatSenseSelector, ThaiLLMStructuredOutputError
 from thailex_api.services import (
     AskService,
     AskServiceError,
     _grounded_cue_words,
+    _context_lemma_for,
     detect_intent,
 )
 from test_selector import candidate
@@ -65,6 +69,20 @@ class RecordingSelector:
         )
 
 
+class ConversationalSelector:
+    async def select(self, query: str, candidates, *, history=None):
+        selected = candidates[0]
+        return SelectionDecision(
+            selected_sense_uri=selected.sense_uri,
+            confidence=0.9,
+            rationale="ตรงกับบริบท",
+            evidence_ids=[selected.evidence[0].evidence_id],
+            selector="thaillm",
+            intent="define",
+            grounded_answer="คำว่า ขัน ในประโยคนี้หมายถึงหมุนสิ่งยึดให้แน่นครับ",
+        )
+
+
 class MalformedThaiLLMSelector:
     async def select(self, query: str, candidates, *, history=None):
         raise ThaiLLMStructuredOutputError("invalid_json", attempts=2)
@@ -100,6 +118,97 @@ class MultiSenseRetriever:
 
 
 class AskServiceTests(unittest.IsolatedAsyncioTestCase):
+    def test_named_new_word_does_not_inherit_previous_chat_target(self) -> None:
+        request = AskRequest(
+            query="แล้วคำที่เกี่ยวข้องกับดาวมีอะไรบ้าง",
+            context_lemma="ขัน",
+        )
+        self.assertIsNone(_context_lemma_for(request))
+
+    async def test_valid_thaillm_answer_is_used_instead_of_fixed_template(self) -> None:
+        service = AskService(
+            repository=FakeRepository(),
+            retriever=FakeRetriever(),
+            heuristic_selector=HeuristicSenseSelector(),
+            llm_selector=ConversationalSelector(),
+            default_to_llm=True,
+            provider="thaillm",
+        )
+        result = await service.ask(AskRequest(query="พ่อขันนอตให้แน่น"))
+        self.assertEqual(
+            result.answer, "คำว่า ขัน ในประโยคนี้หมายถึงหมุนสิ่งยึดให้แน่นครับ"
+        )
+        self.assertEqual(result.diagnostics.answer_mode, "model")
+        self.assertTrue(result.evidence_validated)
+
+    async def test_one_thaillm_call_receives_graph_relation_and_answers(self) -> None:
+        from thailex_api.models import GraphEdge, GraphNode
+
+        class RepositoryWithRelations(FakeRepository):
+            async def graph(self, start_uris, *, hops, max_edges):
+                return GraphResult(hops=2, nodes=[
+                    GraphNode(uri="https://example.test/concept/khan", label="ขัน"),
+                    GraphNode(uri="https://example.test/concept/khai", label="ไข"),
+                ], edges=[
+                    GraphEdge(source="https://example.test/sense/1",
+                              predicate="http://www.w3.org/ns/lemon/ontolex#reference",
+                              target="https://example.test/concept/khan",
+                              source_graph="https://example.test/graph", hop=1),
+                    GraphEdge(source="https://example.test/concept/khan",
+                              predicate="https://w3id.org/thailex/ontology/relatedTerm",
+                              target="https://example.test/concept/khai",
+                              source_graph="https://example.test/graph", hop=2),
+                ])
+
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            task = json.loads(json.loads(request.content)["messages"][1]["content"])
+            calls.append(task)
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+                "intent": "related", "selected_candidate_id": "S1",
+                "confidence": 0.9, "cue_words": ["นอต"],
+                "rationale": "ตรงกับบริบท", "evidence_refs": ["S1-E1"],
+                "grounded_answer": "คำว่า ขัน ในบริบทนี้มีคำที่เกี่ยวข้องคือ ไข ตามข้อมูลความสัมพันธ์ในกราฟครับ",
+            }, ensure_ascii=False)}}]})
+
+        selector = ThaiLLMChatSenseSelector(api_key="test-key", model="test-model")
+        await selector._client.aclose()
+        selector._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        try:
+            service = AskService(
+                repository=RepositoryWithRelations(), retriever=FakeRetriever(),
+                heuristic_selector=HeuristicSenseSelector(), llm_selector=selector,
+                default_to_llm=True, provider="thaillm",
+            )
+            result = await service.ask(AskRequest(query="ขันนอตแล้วมีคำที่เกี่ยวข้องไหม"))
+        finally:
+            await selector.close()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["candidates"][0]["relations"][0]["term"], "ไข")
+        self.assertEqual(result.diagnostics.answer_mode, "model")
+        self.assertIn("คำที่เกี่ยวข้องคือ ไข", result.answer)
+
+    def test_relation_context_uses_only_graph_edges_for_each_sense(self) -> None:
+        from thailex_api.models import GraphEdge, GraphNode
+
+        candidate_item = candidate("https://example.test/sense/1", 0.9, "ev-1")
+        graph = GraphResult(
+            hops=2,
+            nodes=[GraphNode(uri="https://example.test/concept/1", label="ขัน"),
+                   GraphNode(uri="https://example.test/concept/2", label="ไข")],
+            edges=[
+                GraphEdge(source=candidate_item.sense_uri,
+                          predicate="http://www.w3.org/ns/lemon/ontolex#reference",
+                          target="https://example.test/concept/1", source_graph="urn:graph", hop=1),
+                GraphEdge(source="https://example.test/concept/1",
+                          predicate="https://w3id.org/thailex/ontology/relatedTerm",
+                          target="https://example.test/concept/2", source_graph="urn:graph", hop=2),
+            ],
+        )
+        facts = AskService._relation_context(graph, [candidate_item])
+        self.assertEqual(facts[candidate_item.sense_uri][0]["term"], "ไข")
+
     def test_context_cues_do_not_echo_full_sentence(self) -> None:
         request = AskRequest(
             query="คำว่า ดาว ในประโยค ดาวสว่างในคืนนี้ หมายถึงอะไร"
@@ -256,6 +365,22 @@ class FollowupRetriever:
 
 
 class FollowupServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_open_ended_followup_reuses_last_word_when_no_new_word_is_found(self) -> None:
+        retriever = FollowupRetriever()
+        service = AskService(
+            repository=FakeRepository(),
+            retriever=retriever,
+            heuristic_selector=HeuristicSenseSelector(),
+        )
+        result = await service.ask(AskRequest(
+            query="ช่วยอธิบายเพิ่มเติมได้ไหม",
+            context_lemma="ขัน",
+            context_sense_uri="https://example.test/sense/2",
+            history=[{"role": "user", "content": "คำว่า ขัน หมายถึงอะไร"}],
+        ))
+        self.assertEqual(retriever.queries[-1][1], "ขัน")
+        self.assertEqual(result.selection.selected_sense_uri, "https://example.test/sense/2")
+
     async def test_followup_uses_confirmed_context_lemma_for_retrieval(self) -> None:
         repository = FakeRepository()
         retriever = FollowupRetriever()
@@ -359,6 +484,7 @@ class FollowupServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.detail.intent, "compare")
         self.assertFalse(result.diagnostics.fallback_used)
         self.assertIn("ข้อมูลที่นำมาเปรียบเทียบ", result.answer)
+        self.assertEqual(result.diagnostics.answer_mode, "template")
         self.assertEqual(result.selection.grounded_answer, result.answer)
         self.assertNotEqual(result.selection.rationale, "selected real source")
         self.assertIn("Backend ตรวจ", result.selection.rationale)
