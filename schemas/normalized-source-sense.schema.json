@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/thailex/schema/normalized-source-sense.schema.json",
+  "title": "ThaiLex normalized source sense",
+  "description": "One record represents one lexical sense asserted by one source record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "source_record_id",
+    "edition",
+    "lemma",
+    "written_form",
+    "language",
+    "pos",
+    "pos_status",
+    "sense_number",
+    "definition",
+    "record_kind",
+    "policy_decision",
+    "quality_flags",
+    "status"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "edition": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lemma": {
+      "type": "string",
+      "minLength": 1
+    },
+    "written_form": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_entry": {
+      "type": ["string", "null"]
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
+    },
+    "pos": {
+      "type": "string",
+      "enum": [
+        "noun",
+        "verb",
+        "adjective",
+        "adverb",
+        "classifier",
+        "pronoun",
+        "preposition",
+        "conjunction",
+        "interjection",
+        "particle",
+        "unknown"
+      ]
+    },
+    "source_pos": {
+      "type": ["string", "null"]
+    },
+    "pos_status": {
+      "type": "string",
+      "enum": ["mapped", "unmapped"]
+    },
+    "sense_number": {
+      "type": "string",
+      "minLength": 1
+    },
+    "definition": {
+      "type": ["string", "null"]
+    },
+    "record_kind": {
+      "type": "string",
+      "enum": ["definition-bearing", "translation-only"]
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": ["accept", "accept-with-warning"]
+    },
+    "quality_flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "missing-definition",
+          "missing-translation",
+          "missing-source-entry",
+          "unmapped-pos",
+          "missing-sense-number"
+        ]
+      }
+    },
+    "examples": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "synonyms": {
+      "$ref": "#/$defs/relatedTerms"
+    },
+    "antonyms": {
+      "$ref": "#/$defs/relatedTerms"
+    },
+    "hypernyms": {
+      "$ref": "#/$defs/relatedTerms"
+    },
+    "hyponyms": {
+      "$ref": "#/$defs/relatedTerms"
+    },
+    "translations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "language"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
+          }
+        }
+      },
+      "default": []
+    },
+    "status": {
+      "type": "string",
+      "enum": ["source-fact", "proposed", "reviewed", "rejected"]
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "license": {
+      "type": ["string", "null"]
+    },
+    "raw_record": {
+      "type": ["object", "null"]
+    },
+    "source_record_number": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "$defs": {
+    "relatedTerms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "sense_id": { "type": ["string", "null"] },
+          "source_record_id": { "type": ["string", "null"] }
+        }
+      },
+      "default": []
+    }
+  }
+}

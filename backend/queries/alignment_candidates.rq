@@ -1,0 +1,49 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?assertion ?leftSense ?rightSense ?confidence ?semanticSimilarity
+                ?posCompatibility ?method ?recommendedRelation ?reviewStatus
+                ?decidedRelation ?reviewer ?reviewNote
+WHERE {
+  {
+    GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+      ?assertion a tlkg:AlignmentAssertion ;
+                 rdf:subject ?leftSense ;
+                 rdf:predicate ?decidedPredicate ;
+                 rdf:object ?rightSense ;
+                 tlkg:confidence ?confidence ;
+                 tlkg:semanticSimilarity ?semanticSimilarity ;
+                 tlkg:posCompatibility ?posCompatibility ;
+                 tlkg:alignmentMethod ?method ;
+                 tlkg:normalizedLemma ?normalizedLemma ;
+                 tlkg:recommendedRelation ?recommendedRelation ;
+                 tlkg:reviewStatus ?reviewStatus .
+      OPTIONAL { ?assertion tlkg:reviewedBy ?reviewer }
+      OPTIONAL { ?assertion tlkg:reviewNote ?reviewNote }
+      BIND(IF(?reviewStatus = tlkg:ApprovedReviewStatus, STRAFTER(STR(?decidedPredicate), "http://www.w3.org/2004/02/skos/core#"), "") AS ?decidedRelation)
+    }
+  }
+  UNION
+  {
+    GRAPH <https://w3id.org/thailex/graph/alignment/proposed> {
+      ?assertion a tlkg:AlignmentAssertion ;
+                 rdf:subject ?leftSense ;
+                 rdf:object ?rightSense ;
+                 tlkg:confidence ?confidence ;
+                 tlkg:semanticSimilarity ?semanticSimilarity ;
+                 tlkg:posCompatibility ?posCompatibility ;
+                 tlkg:alignmentMethod ?method ;
+                 tlkg:normalizedLemma ?normalizedLemma ;
+                 tlkg:recommendedRelation ?recommendedRelation ;
+                 tlkg:reviewStatus ?reviewStatus .
+    }
+    FILTER NOT EXISTS {
+      GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+        ?assertion tlkg:reviewStatus ?completedStatus
+      }
+    }
+  }
+  FILTER({{LEMMA_FILTER}})
+}
+ORDER BY DESC(?confidence) ?assertion
+LIMIT {{LIMIT}}

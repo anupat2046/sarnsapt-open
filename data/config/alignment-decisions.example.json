@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "decisions": [
+    {
+      "candidate_id": "000000000000000000000000",
+      "review_status": "approved",
+      "relation": "exactMatch",
+      "reviewer": "REPLACE_WITH_REVIEWER_NAME_OR_ID",
+      "note": "Record the linguistic evidence used for this decision"
+    },
+    {
+      "candidate_id": "111111111111111111111111",
+      "review_status": "rejected",
+      "relation": null,
+      "reviewer": "REPLACE_WITH_REVIEWER_NAME_OR_ID",
+      "note": "Explain why these source senses are not aligned"
+    }
+  ]
+}

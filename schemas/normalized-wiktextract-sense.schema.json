@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/thailex/schema/normalized-wiktextract-sense.json",
+  "title": "ThaiLex normalized Wiktextract sense",
+  "type": "object",
+  "required": [
+    "source", "source_kind", "edition", "source_record_id",
+    "entry_record_id", "lemma", "language", "pos", "glosses",
+    "ipa", "forms", "examples", "relations", "quality_flags", "status"
+  ],
+  "properties": {
+    "source": {
+      "enum": ["en-wiktionary-thai-entries", "th-wiktionary"]
+    },
+    "source_kind": { "const": "community" },
+    "edition": {
+      "type": "string",
+      "pattern": "^(en|th)wiktionary-[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "source_record_id": { "type": "string", "minLength": 1 },
+    "entry_record_id": { "type": "string", "minLength": 1 },
+    "source_line_number": { "type": "integer", "minimum": 1 },
+    "lemma": { "type": "string", "minLength": 1 },
+    "language": { "const": "th" },
+    "pos": { "type": "string", "minLength": 1 },
+    "source_pos": { "type": ["string", "null"] },
+    "sense_number": { "type": "integer", "minimum": 1 },
+    "glosses": { "type": "array", "items": { "type": "string" } },
+    "raw_glosses": { "type": "array", "items": { "type": "string" } },
+    "ipa": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["value", "tags"],
+        "properties": {
+          "value": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "forms": { "type": "array", "items": { "type": "object" } },
+    "etymology_text": { "type": ["string", "null"] },
+    "examples": { "type": "array", "items": { "type": "object" } },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "source_field", "term", "status"],
+        "properties": {
+          "type": {
+            "enum": [
+              "synonym", "antonym", "hypernym", "hyponym", "holonym",
+              "meronym", "coordinateTerm", "derivedTerm", "relatedTerm"
+            ]
+          },
+          "source_field": { "type": "string" },
+          "term": { "type": "string", "minLength": 1 },
+          "target_sense_gloss": { "type": ["string", "null"] },
+          "roman": { "type": ["string", "null"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "status": { "const": "source-fact" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "quality_flags": { "type": "array", "items": { "type": "string" } },
+    "status": { "const": "source-fact" },
+    "source_url": { "type": "string", "format": "uri" },
+    "license": { "type": "string", "format": "uri" },
+    "attribution": { "type": "string", "format": "uri" }
+  },
+  "additionalProperties": false
+}

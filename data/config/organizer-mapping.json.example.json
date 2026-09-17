@@ -1,0 +1,31 @@
+{
+  "mapping_version": "1.0",
+  "source": {
+    "id": "replace-me",
+    "title": "Replace with the exact dataset title",
+    "edition_id": "replace-me",
+    "edition_title": "Replace with the exact edition title",
+    "language": "th",
+    "source_url": null,
+    "license": null,
+    "citation": null
+  },
+  "input": {
+    "format": "json",
+    "encoding": "utf-8-sig",
+    "record_path": "REPLACE_WITH_ARRAY_PATH"
+  },
+  "fields": {
+    "source_record_id": { "path": "REPLACE_WITH_ID_PATH" },
+    "lemma": { "path": "REPLACE_WITH_LEMMA_PATH" },
+    "pos": { "path": "REPLACE_IF_AVAILABLE" },
+    "sense_number": { "path": "REPLACE_IF_AVAILABLE" },
+    "definition": { "path": "REPLACE_IF_AVAILABLE" },
+    "examples": { "path": "REPLACE_IF_AVAILABLE" },
+    "synonyms": {
+      "path": "REPLACE_IF_AVAILABLE",
+      "sense_disambiguated": false
+    }
+  },
+  "pos_mapping": {}
+}

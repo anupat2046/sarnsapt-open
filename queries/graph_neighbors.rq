@@ -1,0 +1,18 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?sense ?concept ?conceptLabel ?relation ?related ?relatedLabel
+WHERE {
+  <https://w3id.org/thailex/entry/th-khan> ontolex:sense ?sense .
+  ?sense ontolex:reference ?concept .
+  OPTIONAL { ?concept skos:prefLabel ?conceptLabel }
+  OPTIONAL {
+    ?concept ?relation ?related .
+    VALUES ?relation { skos:broader skos:narrower tlkg:synonym tlkg:antonym }
+    OPTIONAL { ?related skos:prefLabel ?relatedLabel }
+  }
+}
+ORDER BY ?sense ?relation
+

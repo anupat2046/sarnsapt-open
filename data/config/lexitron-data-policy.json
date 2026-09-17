@@ -1,0 +1,54 @@
+{
+  "policy_id": "thailex-lexitron-ingestion-policy",
+  "version": "1.0.0",
+  "source": "lexitron-2.0-telex",
+  "principles": [
+    "Preserve every original source field in raw_record.",
+    "Never generate a Thai definition from an English translation.",
+    "Keep source-specific senses separate from all other datasets.",
+    "Reject only records that cannot identify a lexical item or provide usable lexical evidence."
+  ],
+  "required_identity_fields": [
+    "id",
+    "t-search"
+  ],
+  "content_rules": {
+    "definition_present": "definition-bearing",
+    "definition_missing_translation_present": "translation-only",
+    "definition_and_translation_missing": "reject",
+    "generate_definition_from_translation": false
+  },
+  "pos_rules": {
+    "mapping": {
+      "N": "noun",
+      "V": "verb",
+      "ADJ": "adjective",
+      "ADV": "adverb",
+      "CLAS": "classifier",
+      "PRON": "pronoun",
+      "PREP": "preposition",
+      "CONJ": "conjunction",
+      "INT": "interjection",
+      "AUX": "verb",
+      "QUES": "particle",
+      "END": "particle",
+      "NEG": "particle"
+    },
+    "unmapped_action": "import-as-unknown",
+    "preserve_source_pos": true,
+    "manual_review_values": [
+      "DET",
+      "PREF",
+      "FIXP",
+      "AVD",
+      "ADV   V",
+      "UNK"
+    ]
+  },
+  "quality_flags": {
+    "missing-definition": "The source has no t-def; retain only source translation evidence.",
+    "missing-translation": "The source has no e-entry.",
+    "missing-source-entry": "The source has no t-entry; use t-search as written_form.",
+    "unmapped-pos": "The source POS is unknown or dirty; preserve it and omit lexinfo:partOfSpeech."
+  }
+}

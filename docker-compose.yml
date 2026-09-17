@@ -1,0 +1,56 @@
+name: thailex
+
+services:
+  graphdb:
+    image: ontotext/graphdb:11.5.0
+    container_name: thailex-graphdb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7200:7200"
+    environment:
+      GDB_JAVA_OPTS: "-Dgraphdb.license.file=/opt/graphdb/license/graphdb.license"
+    volumes:
+      - graphdb-11-home:/opt/graphdb/home
+      - ./secrets/graphdb.license:/opt/graphdb/license/graphdb.license:ro
+
+  backend:
+    profiles: ["backend", "frontend"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: thailex-backend
+    restart: unless-stopped
+    depends_on:
+      - graphdb
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      THAILEX_SPARQL_ENDPOINT: "http://graphdb:7200/repositories/thailex"
+      THAILEX_SELECTOR_MODE: "${THAILEX_SELECTOR_MODE:-heuristic}"
+      THAILEX_REQUEST_TIMEOUT_SECONDS: "${THAILEX_REQUEST_TIMEOUT_SECONDS:-30}"
+      THAILEX_MAX_GRAPH_EDGES: "${THAILEX_MAX_GRAPH_EDGES:-50}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-}"
+      THAILLM_API_KEY: "${THAILLM_API_KEY:-}"
+      THAILLM_MODEL: "${THAILLM_MODEL:-Pathumma-ThaiLLM-qwen3-8b-think-3.0.0}"
+      THAILLM_BASE_URL: "${THAILLM_BASE_URL:-https://thaillm.or.th/api/v1}"
+      THAILLM_MAX_TOKENS: "${THAILLM_MAX_TOKENS:-700}"
+      THAILLM_TEMPERATURE: "${THAILLM_TEMPERATURE:-0.0}"
+
+  frontend:
+    profiles: ["frontend"]
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}"
+    container_name: sarn-sap-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  graphdb-11-home:
+    name: sarnsapt-graphdb-home

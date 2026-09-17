@@ -1,0 +1,37 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT ?proposedCount ?reviewedCount ?pendingEdgeCount ?exactEdgeCount ?closeEdgeCount
+WHERE {
+  {
+    SELECT (COUNT(DISTINCT ?assertion) AS ?proposedCount)
+    WHERE { GRAPH <https://w3id.org/thailex/graph/alignment/proposed> {
+      ?assertion a tlkg:AlignmentAssertion .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?assertion) AS ?reviewedCount)
+    WHERE { GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+      ?assertion a tlkg:AlignmentAssertion .
+    } }
+  }
+  {
+    SELECT (COUNT(*) AS ?pendingEdgeCount)
+    WHERE { GRAPH <https://w3id.org/thailex/graph/alignment/proposed> {
+      ?left tlkg:possiblySameSense ?right .
+    } }
+  }
+  {
+    SELECT (COUNT(*) AS ?exactEdgeCount)
+    WHERE { GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+      ?left skos:exactMatch ?right .
+    } }
+  }
+  {
+    SELECT (COUNT(*) AS ?closeEdgeCount)
+    WHERE { GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+      ?left skos:closeMatch ?right .
+    } }
+  }
+}

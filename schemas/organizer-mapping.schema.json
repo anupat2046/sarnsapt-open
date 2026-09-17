@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/thailex/schema/organizer-mapping.json",
+  "title": "ThaiLex organizer dataset mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mapping_version", "source", "input", "fields", "pos_mapping"],
+  "properties": {
+    "mapping_version": { "const": "1.0" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "edition_id", "edition_title", "language"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "title": { "type": "string", "minLength": 1 },
+        "edition_id": { "$ref": "#/$defs/safeId" },
+        "edition_title": { "type": "string", "minLength": 1 },
+        "language": { "$ref": "#/$defs/language" },
+        "source_url": { "type": ["string", "null"], "format": "uri" },
+        "license": { "type": ["string", "null"] },
+        "citation": { "type": ["string", "null"] }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format"],
+      "properties": {
+        "format": { "enum": ["csv", "json", "jsonl", "xml"] },
+        "encoding": { "type": ["string", "null"] },
+        "delimiter": { "type": ["string", "null"], "minLength": 1, "maxLength": 1 },
+        "record_path": { "type": ["string", "null"] },
+        "namespaces": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_record_id", "lemma"],
+      "properties": {
+        "source_record_id": { "$ref": "#/$defs/field" },
+        "lemma": { "$ref": "#/$defs/field" },
+        "written_form": { "$ref": "#/$defs/field" },
+        "source_entry": { "$ref": "#/$defs/field" },
+        "pos": { "$ref": "#/$defs/field" },
+        "sense_number": { "$ref": "#/$defs/field" },
+        "definition": { "$ref": "#/$defs/field" },
+        "examples": { "$ref": "#/$defs/field" },
+        "synonyms": { "$ref": "#/$defs/relationField" },
+        "antonyms": { "$ref": "#/$defs/relationField" },
+        "hypernyms": { "$ref": "#/$defs/relationField" },
+        "hyponyms": { "$ref": "#/$defs/relationField" },
+        "translations": { "$ref": "#/$defs/translationField" }
+      }
+    },
+    "pos_mapping": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "noun", "verb", "adjective", "adverb", "classifier", "pronoun",
+          "preposition", "conjunction", "interjection", "particle", "unknown"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
+    },
+    "field": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "separator": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "relationField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "separator": { "type": "string", "minLength": 1 },
+        "sense_disambiguated": { "type": "boolean" }
+      }
+    },
+    "translationField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "language"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "separator": { "type": "string", "minLength": 1 },
+        "language": { "$ref": "#/$defs/language" }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?sourceGraph ?subject ?predicate ?object ?subjectLabel ?objectLabel
+                ?subjectLabelGraph ?objectLabelGraph
+WHERE {
+  VALUES ?subject { {{START_IRIS}} }
+  GRAPH ?sourceGraph {
+    ?subject ?predicate ?object .
+    VALUES ?predicate {
+      ontolex:reference
+      skos:exactMatch skos:closeMatch skos:broader skos:narrower
+      tlkg:possiblySameSense tlkg:synonym tlkg:antonym
+      tlkg:hypernym tlkg:hyponym tlkg:similar
+      tlkg:holonym tlkg:meronym tlkg:entails tlkg:causes
+      tlkg:domainTopic tlkg:attribute tlkg:coordinateTerm
+      tlkg:derivedTerm tlkg:relatedTerm
+    }
+    FILTER(
+      ?sourceGraph IN (
+        <https://w3id.org/thailex/graph/lexitron>,
+        <https://w3id.org/thailex/graph/thai-wordnet>,
+        <https://w3id.org/thailex/graph/omw-en>,
+        <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+        <https://w3id.org/thailex/graph/th-wiktionary>,
+        <https://w3id.org/thailex/graph/alignment/proposed>,
+        <https://w3id.org/thailex/graph/alignment/reviewed>
+      )
+      || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/")
+      || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/demo-")
+    )
+    FILTER(isIRI(?object))
+  }
+  OPTIONAL {
+    GRAPH ?subjectLabelGraph {
+      ?subject (skos:prefLabel|<http://www.w3.org/2000/01/rdf-schema#label>) ?subjectLabel
+    }
+    FILTER(LANG(?subjectLabel) = "th" || LANG(?subjectLabel) = "")
+  }
+  OPTIONAL {
+    GRAPH ?objectLabelGraph {
+      ?object (skos:prefLabel|<http://www.w3.org/2000/01/rdf-schema#label>) ?objectLabel
+    }
+    FILTER(LANG(?objectLabel) = "th" || LANG(?objectLabel) = "")
+  }
+}
+ORDER BY ?sourceGraph ?subject ?predicate ?object
+LIMIT {{LIMIT}}

@@ -1,0 +1,38 @@
+# Local environment
+.env
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+
+# Node.js
+node_modules/
+.next/
+*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Generated and local data
+data/raw/
+data/local/
+data/organizer/
+data/fixtures/
+data/normalized/
+data/rdf/generated/
+data/rdf/backup/
+data/config/*.local.json
+graphdb/home/
+secrets/
+reports/
+output/
+
+# Browser QA output
+.playwright-cli/
+output/playwright/
+
+# OS files
+.DS_Store
+Thumbs.db

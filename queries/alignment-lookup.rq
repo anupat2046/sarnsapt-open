@@ -1,0 +1,31 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?alignmentGraph ?assertion ?leftSense ?leftSource ?rightSense ?rightSource
+       ?relation ?confidence ?recommendedRelation ?reviewStatus
+WHERE {
+  VALUES ?lemma { "ขัน"@th }
+  VALUES ?alignmentGraph {
+    <https://w3id.org/thailex/graph/alignment/proposed>
+    <https://w3id.org/thailex/graph/alignment/reviewed>
+  }
+  GRAPH ?sourceGraph {
+    ?entry a ontolex:LexicalEntry ;
+           rdfs:label ?lemma ;
+           ontolex:sense ?leftSense .
+  }
+  GRAPH ?alignmentGraph {
+    ?assertion a tlkg:AlignmentAssertion ;
+               rdf:subject ?leftSense ;
+               rdf:predicate ?relation ;
+               rdf:object ?rightSense ;
+               tlkg:leftSource ?leftSource ;
+               tlkg:rightSource ?rightSource ;
+               tlkg:confidence ?confidence ;
+               tlkg:recommendedRelation ?recommendedRelation ;
+               tlkg:reviewStatus ?reviewStatus .
+  }
+}
+ORDER BY DESC(?confidence) ?leftSense ?rightSense

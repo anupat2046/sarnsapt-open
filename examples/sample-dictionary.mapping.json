@@ -1,0 +1,29 @@
+{
+  "mapping_version": "1.0",
+  "source": {
+    "id": "sample-dictionary",
+    "title": "พจนานุกรมตัวอย่างที่เขียนขึ้นสำหรับโครงการ",
+    "edition_id": "v1",
+    "edition_title": "ฉบับสังเคราะห์ 1",
+    "language": "th",
+    "source_url": null,
+    "license": "CC0-1.0",
+    "citation": "Synthetic example data authored for SarnSap"
+  },
+  "input": {
+    "format": "csv",
+    "encoding": "utf-8",
+    "delimiter": ","
+  },
+  "fields": {
+    "source_record_id": { "path": "id" },
+    "lemma": { "path": "lemma" },
+    "pos": { "path": "pos" },
+    "sense_number": { "path": "sense_number" },
+    "definition": { "path": "definition" },
+    "examples": { "path": "example" }
+  },
+  "pos_mapping": {
+    "noun": "noun"
+  }
+}

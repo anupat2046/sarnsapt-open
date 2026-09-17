@@ -1,0 +1,1 @@
+ASK { GRAPH ?graph { ?subject ?predicate ?object } }

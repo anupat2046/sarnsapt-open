@@ -1,0 +1,30 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT ?sense ?thaiSynset ?ili ?englishSynset ?englishLabel ?definition
+       ?relation ?relatedSynset ?relatedLabel
+WHERE {
+  GRAPH <https://w3id.org/thailex/graph/thai-wordnet> {
+    ?entry ontolex:canonicalForm/ontolex:writtenRep "ขัน"@th ;
+           ontolex:sense ?sense .
+    ?sense ontolex:reference ?thaiSynset .
+    OPTIONAL { ?thaiSynset tlkg:interlingualIndex ?ili }
+    OPTIONAL { ?thaiSynset skos:exactMatch ?englishSynset }
+  }
+  OPTIONAL {
+    GRAPH <https://w3id.org/thailex/graph/omw-en> {
+      ?englishSynset skos:prefLabel ?englishLabel .
+      OPTIONAL {
+        ?englishSynset tlkg:hasSynsetDefinition/tlkg:definitionText ?definition
+      }
+      OPTIONAL {
+        VALUES ?relation { tlkg:hypernym tlkg:hyponym tlkg:similar }
+        ?englishSynset ?relation ?relatedSynset .
+        OPTIONAL { ?relatedSynset skos:prefLabel ?relatedLabel }
+      }
+    }
+  }
+}
+ORDER BY ?sense ?relation ?relatedLabel
+

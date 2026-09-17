@@ -1,0 +1,289 @@
+@prefix concept: <https://w3id.org/thailex/concept/> .
+@prefix definition: <https://w3id.org/thailex/definition/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix edition: <https://w3id.org/thailex/edition/> .
+@prefix entry: <https://w3id.org/thailex/entry/> .
+@prefix form: <https://w3id.org/thailex/form/> .
+@prefix lexinfo: <https://lexinfo.net/ontology/3.0/lexinfo#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sense: <https://w3id.org/thailex/sense/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix source: <https://w3id.org/thailex/source/> .
+@prefix tlkg: <https://w3id.org/thailex/ontology/> .
+
+# -----------------------------------------------------------------------------
+# IMPORTANT: This is synthetic demo data, not an official dictionary dataset.
+# -----------------------------------------------------------------------------
+
+source:demo-dictionary a dcterms:Dataset, prov:Entity ;
+    dcterms:title "ThaiLex synthetic demo dictionary"@en ;
+    dcterms:description "ข้อมูลจำลองสำหรับทดสอบโครงสร้างระบบ ไม่ใช่นิยามทางการ"@th ;
+    dcterms:license "Synthetic demo data for the ThaiLex prototype" .
+
+edition:demo-a a tlkg:DictionaryEdition ;
+    rdfs:label "Demo Edition A"@en ;
+    rdfs:label "ฉบับสาธิต A"@th ;
+    dcterms:isPartOf source:demo-dictionary .
+
+# Shared broader concepts used by the graph demo.
+concept:container a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "ภาชนะ"@th .
+concept:action a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "การกระทำ"@th .
+concept:sound a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "เสียง"@th .
+concept:body-part a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "อวัยวะ"@th .
+concept:person a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "บุคคล"@th .
+concept:sequence-position a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "ตำแหน่งในลำดับ"@th .
+concept:plant-part a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "ส่วนของพืช"@th .
+concept:document a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "เอกสาร"@th .
+concept:movement a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "การเคลื่อนที่"@th .
+concept:change a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "การเปลี่ยนแปลง"@th .
+
+# -----------------------------------------------------------------------------
+# ขัน
+# -----------------------------------------------------------------------------
+
+entry:th-khan a ontolex:LexicalEntry ;
+    rdfs:label "ขัน"@th ;
+    lexinfo:partOfSpeech lexinfo:noun, lexinfo:verb, lexinfo:adjective ;
+    ontolex:canonicalForm form:th-khan ;
+    ontolex:sense sense:demo-khan-container,
+        sense:demo-khan-tighten,
+        sense:demo-khan-crow,
+        sense:demo-khan-amusing .
+
+form:th-khan a ontolex:Form ; ontolex:writtenRep "ขัน"@th .
+
+concept:khan-container a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ขันที่เป็นภาชนะ"@th ;
+    skos:broader concept:container .
+
+concept:khan-tighten a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "การขันให้แน่น"@th ;
+    skos:broader concept:action ;
+    tlkg:antonym concept:loosen .
+
+concept:loosen a ontolex:LexicalConcept, skos:Concept ; skos:prefLabel "คลาย"@th .
+
+concept:khan-crow a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "การส่งเสียงขันของสัตว์ปีก"@th ;
+    skos:broader concept:sound .
+
+concept:khan-amusing a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "น่าขบขัน"@th .
+
+sense:demo-khan-container a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khan ;
+    ontolex:reference concept:khan-container ;
+    lexinfo:partOfSpeech lexinfo:noun ;
+    tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-khan-container ;
+    tlkg:exampleText "เขาใช้ขันตักน้ำ"@th .
+
+sense:demo-khan-tighten a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khan ;
+    ontolex:reference concept:khan-tighten ;
+    lexinfo:partOfSpeech lexinfo:verb ;
+    tlkg:originalPartOfSpeech "V" ;
+    tlkg:hasDefinition definition:demo-khan-tighten ;
+    tlkg:exampleText "ช่างขันนอตให้แน่น"@th .
+
+sense:demo-khan-crow a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khan ;
+    ontolex:reference concept:khan-crow ;
+    lexinfo:partOfSpeech lexinfo:verb ;
+    tlkg:originalPartOfSpeech "V" ;
+    tlkg:hasDefinition definition:demo-khan-crow ;
+    tlkg:exampleText "ไก่ขันตอนเช้า"@th .
+
+sense:demo-khan-amusing a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khan ;
+    ontolex:reference concept:khan-amusing ;
+    lexinfo:partOfSpeech lexinfo:adjective ;
+    tlkg:originalPartOfSpeech "ADJ" ;
+    tlkg:hasDefinition definition:demo-khan-amusing ;
+    tlkg:exampleText "เรื่องนี้ฟังดูน่าขบขัน"@th .
+
+# -----------------------------------------------------------------------------
+# ตา
+# -----------------------------------------------------------------------------
+
+entry:th-ta a ontolex:LexicalEntry ;
+    rdfs:label "ตา"@th ;
+    lexinfo:partOfSpeech lexinfo:noun ;
+    ontolex:canonicalForm form:th-ta ;
+    ontolex:sense sense:demo-ta-eye, sense:demo-ta-grandfather, sense:demo-ta-turn .
+
+form:th-ta a ontolex:Form ; ontolex:writtenRep "ตา"@th .
+
+concept:ta-eye a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ดวงตา"@th ; skos:broader concept:body-part .
+concept:ta-grandfather a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ตาฝ่ายมารดา"@th ; skos:broader concept:person .
+concept:ta-turn a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "รอบหรือลำดับในการเล่น"@th ; skos:broader concept:sequence-position .
+
+sense:demo-ta-eye a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-ta ; ontolex:reference concept:ta-eye ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-ta-eye ;
+    tlkg:exampleText "ฝุ่นเข้าตา"@th .
+sense:demo-ta-grandfather a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-ta ; ontolex:reference concept:ta-grandfather ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-ta-grandfather ;
+    tlkg:exampleText "ตาพาหลานไปตลาด"@th .
+sense:demo-ta-turn a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-ta ; ontolex:reference concept:ta-turn ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-ta-turn ;
+    tlkg:exampleText "ตานี้ถึงรอบของฉัน"@th .
+
+# -----------------------------------------------------------------------------
+# หัว
+# -----------------------------------------------------------------------------
+
+entry:th-hua a ontolex:LexicalEntry ;
+    rdfs:label "หัว"@th ;
+    lexinfo:partOfSpeech lexinfo:noun ;
+    ontolex:canonicalForm form:th-hua ;
+    ontolex:sense sense:demo-hua-body, sense:demo-hua-beginning, sense:demo-hua-leader .
+
+form:th-hua a ontolex:Form ; ontolex:writtenRep "หัว"@th .
+
+concept:hua-body a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ศีรษะ"@th ; skos:broader concept:body-part .
+concept:hua-beginning a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ส่วนต้นหรือส่วนแรก"@th ; skos:broader concept:sequence-position .
+concept:hua-leader a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ผู้นำ"@th ; skos:broader concept:person .
+
+sense:demo-hua-body a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-hua ; ontolex:reference concept:hua-body ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-hua-body ;
+    tlkg:exampleText "เขาสวมหมวกไว้บนหัว"@th .
+sense:demo-hua-beginning a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-hua ; ontolex:reference concept:hua-beginning ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-hua-beginning ;
+    tlkg:exampleText "พบกันที่หัวถนน"@th .
+sense:demo-hua-leader a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-hua ; ontolex:reference concept:hua-leader ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-hua-leader ;
+    tlkg:exampleText "เขาเป็นหัวหน้าทีม"@th .
+
+# -----------------------------------------------------------------------------
+# ใบ
+# -----------------------------------------------------------------------------
+
+entry:th-bai a ontolex:LexicalEntry ;
+    rdfs:label "ใบ"@th ;
+    lexinfo:partOfSpeech lexinfo:noun ;
+    ontolex:canonicalForm form:th-bai ;
+    ontolex:sense sense:demo-bai-leaf, sense:demo-bai-document, sense:demo-bai-classifier .
+
+form:th-bai a ontolex:Form ; ontolex:writtenRep "ใบ"@th .
+
+concept:bai-leaf a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ใบของพืช"@th ; skos:broader concept:plant-part .
+concept:bai-document a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "เอกสารหนึ่งแผ่นหรือหนึ่งฉบับ"@th ; skos:broader concept:document .
+concept:bai-classifier a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "ลักษณนามว่าใบ"@th .
+
+sense:demo-bai-leaf a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-bai ; ontolex:reference concept:bai-leaf ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-bai-leaf ;
+    tlkg:exampleText "ใบไม้ร่วงจากต้น"@th .
+sense:demo-bai-document a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-bai ; ontolex:reference concept:bai-document ;
+    lexinfo:partOfSpeech lexinfo:noun ; tlkg:originalPartOfSpeech "N" ;
+    tlkg:hasDefinition definition:demo-bai-document ;
+    tlkg:exampleText "กรุณาแสดงใบรับรอง"@th .
+sense:demo-bai-classifier a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-bai ; ontolex:reference concept:bai-classifier ;
+    tlkg:originalPartOfSpeech "CL" ;
+    tlkg:hasDefinition definition:demo-bai-classifier ;
+    tlkg:exampleText "กระเป๋าสองใบ"@th .
+
+# -----------------------------------------------------------------------------
+# ขึ้น
+# -----------------------------------------------------------------------------
+
+entry:th-khuen a ontolex:LexicalEntry ;
+    rdfs:label "ขึ้น"@th ;
+    lexinfo:partOfSpeech lexinfo:verb ;
+    ontolex:canonicalForm form:th-khuen ;
+    ontolex:sense sense:demo-khuen-ascend, sense:demo-khuen-increase, sense:demo-khuen-grow .
+
+form:th-khuen a ontolex:Form ; ontolex:writtenRep "ขึ้น"@th .
+
+concept:khuen-ascend a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "เคลื่อนจากต่ำไปสูง"@th ; skos:broader concept:movement .
+concept:khuen-increase a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "เพิ่มขึ้น"@th ; skos:broader concept:change .
+concept:khuen-grow a ontolex:LexicalConcept, skos:Concept ;
+    skos:prefLabel "เกิดหรืองอกขึ้น"@th ; skos:broader concept:change .
+
+sense:demo-khuen-ascend a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khuen ; ontolex:reference concept:khuen-ascend ;
+    lexinfo:partOfSpeech lexinfo:verb ; tlkg:originalPartOfSpeech "V" ;
+    tlkg:hasDefinition definition:demo-khuen-ascend ;
+    tlkg:exampleText "เขาเดินขึ้นบันได"@th .
+sense:demo-khuen-increase a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khuen ; ontolex:reference concept:khuen-increase ;
+    lexinfo:partOfSpeech lexinfo:verb ; tlkg:originalPartOfSpeech "V" ;
+    tlkg:hasDefinition definition:demo-khuen-increase ;
+    tlkg:exampleText "ราคาสินค้าสูงขึ้น"@th .
+sense:demo-khuen-grow a ontolex:LexicalSense ;
+    ontolex:isSenseOf entry:th-khuen ; ontolex:reference concept:khuen-grow ;
+    lexinfo:partOfSpeech lexinfo:verb ; tlkg:originalPartOfSpeech "V" ;
+    tlkg:hasDefinition definition:demo-khuen-grow ;
+    tlkg:exampleText "ต้นอ่อนขึ้นหลังฝนตก"@th .
+
+# -----------------------------------------------------------------------------
+# Definition assertions and source records
+# -----------------------------------------------------------------------------
+
+definition:demo-khan-container a tlkg:DefinitionAssertion ; tlkg:definitionText "ภาชนะทรงกลมสำหรับตักหรือใส่น้ำ"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khan-container .
+definition:demo-khan-tighten a tlkg:DefinitionAssertion ; tlkg:definitionText "หมุนหรือบิดสิ่งยึดให้แน่น"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khan-tighten .
+definition:demo-khan-crow a tlkg:DefinitionAssertion ; tlkg:definitionText "เปล่งเสียงร้องในลักษณะของไก่หรือสัตว์ปีกบางชนิด"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khan-crow .
+definition:demo-khan-amusing a tlkg:DefinitionAssertion ; tlkg:definitionText "มีลักษณะที่ทำให้รู้สึกตลกหรือเพลิดเพลิน"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khan-amusing .
+
+definition:demo-ta-eye a tlkg:DefinitionAssertion ; tlkg:definitionText "อวัยวะที่ใช้ในการมองเห็น"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-ta-eye .
+definition:demo-ta-grandfather a tlkg:DefinitionAssertion ; tlkg:definitionText "พ่อของแม่"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-ta-grandfather .
+definition:demo-ta-turn a tlkg:DefinitionAssertion ; tlkg:definitionText "รอบหรือลำดับของผู้เล่น"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-ta-turn .
+
+definition:demo-hua-body a tlkg:DefinitionAssertion ; tlkg:definitionText "ส่วนบนของร่างกายที่มีสมอง ตา หู จมูก และปาก"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-hua-body .
+definition:demo-hua-beginning a tlkg:DefinitionAssertion ; tlkg:definitionText "ส่วนต้นหรือส่วนแรกของสิ่งหนึ่ง"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-hua-beginning .
+definition:demo-hua-leader a tlkg:DefinitionAssertion ; tlkg:definitionText "ผู้เป็นผู้นำหรือผู้ควบคุมกลุ่ม"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-hua-leader .
+
+definition:demo-bai-leaf a tlkg:DefinitionAssertion ; tlkg:definitionText "ส่วนของพืชที่มักมีลักษณะแบนและติดกับกิ่งหรือลำต้น"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-bai-leaf .
+definition:demo-bai-document a tlkg:DefinitionAssertion ; tlkg:definitionText "เอกสารหรือสิ่งพิมพ์หนึ่งแผ่นหรือหนึ่งฉบับ"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-bai-document .
+definition:demo-bai-classifier a tlkg:DefinitionAssertion ; tlkg:definitionText "คำลักษณนามที่ใช้กับสิ่งของบางประเภท"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-bai-classifier .
+
+definition:demo-khuen-ascend a tlkg:DefinitionAssertion ; tlkg:definitionText "เคลื่อนจากระดับต่ำไปสู่ระดับสูง"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khuen-ascend .
+definition:demo-khuen-increase a tlkg:DefinitionAssertion ; tlkg:definitionText "เปลี่ยนไปในทางที่มีปริมาณหรือระดับมากกว่าเดิม"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khuen-increase .
+definition:demo-khuen-grow a tlkg:DefinitionAssertion ; tlkg:definitionText "เกิด งอก หรือปรากฏขึ้น"@th ; tlkg:inEdition edition:demo-a ; tlkg:assertionStatus tlkg:SourceFactStatus ; prov:wasDerivedFrom source:record-demo-khuen-grow .
+
+source:record-demo-khan-container a prov:Entity ; tlkg:sourceRecordId "demo-khan-container" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khan-tighten a prov:Entity ; tlkg:sourceRecordId "demo-khan-tighten" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khan-crow a prov:Entity ; tlkg:sourceRecordId "demo-khan-crow" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khan-amusing a prov:Entity ; tlkg:sourceRecordId "demo-khan-amusing" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-ta-eye a prov:Entity ; tlkg:sourceRecordId "demo-ta-eye" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-ta-grandfather a prov:Entity ; tlkg:sourceRecordId "demo-ta-grandfather" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-ta-turn a prov:Entity ; tlkg:sourceRecordId "demo-ta-turn" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-hua-body a prov:Entity ; tlkg:sourceRecordId "demo-hua-body" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-hua-beginning a prov:Entity ; tlkg:sourceRecordId "demo-hua-beginning" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-hua-leader a prov:Entity ; tlkg:sourceRecordId "demo-hua-leader" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-bai-leaf a prov:Entity ; tlkg:sourceRecordId "demo-bai-leaf" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-bai-document a prov:Entity ; tlkg:sourceRecordId "demo-bai-document" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-bai-classifier a prov:Entity ; tlkg:sourceRecordId "demo-bai-classifier" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khuen-ascend a prov:Entity ; tlkg:sourceRecordId "demo-khuen-ascend" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khuen-increase a prov:Entity ; tlkg:sourceRecordId "demo-khuen-increase" ; prov:wasDerivedFrom source:demo-dictionary .
+source:record-demo-khuen-grow a prov:Entity ; tlkg:sourceRecordId "demo-khuen-grow" ; prov:wasDerivedFrom source:demo-dictionary .
+

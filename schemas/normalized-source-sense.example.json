@@ -1,0 +1,38 @@
+{
+  "source": "demo-dictionary",
+  "source_record_id": "demo-khan-v-tighten",
+  "edition": "demo-edition-a",
+  "lemma": "ขัน",
+  "written_form": "ขัน",
+  "source_entry": "ขัน 2",
+  "language": "th",
+  "pos": "verb",
+  "source_pos": "V",
+  "pos_status": "mapped",
+  "sense_number": "2",
+  "definition": "หมุนหรือบิดสิ่งยึดให้แน่น",
+  "record_kind": "definition-bearing",
+  "policy_decision": "accept",
+  "quality_flags": [],
+  "examples": ["ช่างขันนอตให้แน่น"],
+  "synonyms": [],
+  "antonyms": [
+    {
+      "term": "คลาย",
+      "sense_id": null,
+      "source_record_id": null
+    }
+  ],
+  "hypernyms": [],
+  "hyponyms": [],
+  "translations": [
+    {
+      "term": "tighten",
+      "language": "en"
+    }
+  ],
+  "status": "source-fact",
+  "source_url": null,
+  "license": "Synthetic demo data",
+  "raw_record": null
+}

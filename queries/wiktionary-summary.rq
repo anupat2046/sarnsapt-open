@@ -1,0 +1,45 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT
+  ?entryCount ?senseCount ?definitionCount ?pronunciationCount
+  ?etymologyEntryCount ?relationAssertionCount
+WHERE {
+  {
+    SELECT (COUNT(DISTINCT ?entry) AS ?entryCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?entry a ontolex:LexicalEntry ;
+             ontolex:sense ?sense .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?sense) AS ?senseCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?sense a ontolex:LexicalSense .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?definition) AS ?definitionCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?sense tlkg:hasDefinition ?definition .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?pronunciation) AS ?pronunciationCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?pronunciation ontolex:phoneticRep ?ipa .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?entrySourceWithEtymology) AS ?etymologyEntryCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?entrySourceWithEtymology tlkg:etymologyText ?etymology .
+    } }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?assertion) AS ?relationAssertionCount)
+    WHERE { GRAPH {{GRAPH_IRI}} {
+      ?assertion a tlkg:RelationAssertion .
+    } }
+  }
+}

@@ -1,0 +1,124 @@
+PREFIX lexinfo: <https://lexinfo.net/ontology/3.0/lexinfo#>
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?sourceGraph ?entry ?sense ?concept ?lemma ?pos ?originalPos
+                ?sourceRecordId ?senseEditionUri ?senseEdition ?senseSourceUrl
+                ?senseLicense ?senseRights ?kind ?text ?evidenceUri ?evidenceGraph
+                ?derivedFrom ?evidenceEditionUri ?evidenceEdition ?evidenceSourceUrl
+                ?evidenceLicense ?evidenceRights
+WHERE {
+  VALUES ?lemma { {{LEMMA}}@th {{LEMMA}} }
+  GRAPH ?sourceGraph {
+    ?entry a ontolex:LexicalEntry ;
+           rdfs:label ?lemma ;
+           ontolex:sense ?sense .
+    OPTIONAL { ?sense ontolex:reference ?concept }
+    OPTIONAL { ?sense lexinfo:partOfSpeech ?sensePos }
+    OPTIONAL {
+      ?entry lexinfo:partOfSpeech ?entryPos .
+      FILTER NOT EXISTS {
+        ?entry lexinfo:partOfSpeech ?differentEntryPos .
+        FILTER(?differentEntryPos != ?entryPos)
+      }
+    }
+    BIND(COALESCE(?sensePos, ?entryPos) AS ?pos)
+    OPTIONAL { ?sense tlkg:originalPartOfSpeech ?originalPos }
+    OPTIONAL {
+      ?sense tlkg:inEdition ?senseEditionUri .
+      OPTIONAL { ?senseEditionUri dcterms:title ?senseEdition }
+    }
+    OPTIONAL { ?sense tlkg:sourceRecordId ?directSourceRecordId }
+    OPTIONAL {
+      ?sense prov:wasDerivedFrom ?sourceRecord .
+      OPTIONAL { ?sourceRecord tlkg:sourceRecordId ?derivedSourceRecordId }
+    }
+    BIND(COALESCE(?directSourceRecordId, ?derivedSourceRecordId) AS ?sourceRecordId)
+  }
+  FILTER(
+    ?sourceGraph IN (
+      <https://w3id.org/thailex/graph/lexitron>,
+      <https://w3id.org/thailex/graph/thai-wordnet>,
+      <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+      <https://w3id.org/thailex/graph/th-wiktionary>
+    )
+    || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/")
+    || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/demo-")
+  )
+
+  OPTIONAL {
+    GRAPH ?sourceGraph {
+      ?senseDataset dcterms:source ?senseSourceUrl .
+      OPTIONAL { ?senseDataset dcterms:license ?senseLicense }
+      OPTIONAL { ?senseDataset dcterms:rights ?senseRights }
+    }
+  }
+
+  OPTIONAL {
+    {
+      GRAPH ?sourceGraph {
+        ?sense tlkg:hasDefinition ?evidenceUri .
+        ?evidenceUri tlkg:definitionText ?text .
+        OPTIONAL { ?evidenceUri prov:wasDerivedFrom ?derivedFrom }
+      }
+      BIND("definition" AS ?kind)
+      BIND(?sourceGraph AS ?evidenceGraph)
+    }
+    UNION
+    {
+      GRAPH ?sourceGraph { ?sense tlkg:exampleText ?text }
+      BIND("example" AS ?kind)
+      BIND(?sense AS ?evidenceUri)
+      BIND(?sourceGraph AS ?evidenceGraph)
+    }
+    UNION
+    {
+      GRAPH ?sourceGraph {
+        ?sense tlkg:hasExample ?evidenceUri .
+        ?evidenceUri tlkg:exampleText ?text .
+        OPTIONAL { ?evidenceUri prov:wasDerivedFrom ?derivedFrom }
+      }
+      BIND("example" AS ?kind)
+      BIND(?sourceGraph AS ?evidenceGraph)
+    }
+    UNION
+    {
+      GRAPH ?sourceGraph { ?sense ontolex:reference ?thaiConcept }
+      GRAPH ?linkGraph { ?thaiConcept skos:exactMatch ?englishConcept }
+      GRAPH ?evidenceGraph {
+        ?englishConcept tlkg:hasSynsetDefinition ?evidenceUri .
+        ?evidenceUri tlkg:definitionText ?text .
+        OPTIONAL { ?evidenceUri prov:wasDerivedFrom ?derivedFrom }
+      }
+      BIND("synset-definition" AS ?kind)
+    }
+    UNION
+    {
+      GRAPH ?sourceGraph { ?sense ontolex:reference ?thaiConcept }
+      GRAPH ?linkGraph { ?thaiConcept skos:exactMatch ?englishConcept }
+      GRAPH ?evidenceGraph { ?englishConcept tlkg:synsetExampleText ?text }
+      BIND("synset-example" AS ?kind)
+      BIND(?englishConcept AS ?evidenceUri)
+    }
+  }
+
+  OPTIONAL {
+    GRAPH ?evidenceGraph {
+      ?evidenceUri tlkg:inEdition ?evidenceEditionUri .
+      OPTIONAL { ?evidenceEditionUri dcterms:title ?evidenceEdition }
+    }
+  }
+  OPTIONAL {
+    GRAPH ?evidenceGraph {
+      ?evidenceDataset dcterms:source ?evidenceSourceUrl .
+      OPTIONAL { ?evidenceDataset dcterms:license ?evidenceLicense }
+      OPTIONAL { ?evidenceDataset dcterms:rights ?evidenceRights }
+    }
+  }
+}
+ORDER BY ?sourceGraph ?sense ?kind ?evidenceUri
+LIMIT {{LIMIT}}

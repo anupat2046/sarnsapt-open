@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/thailex/schema/alignment-decisions.json",
+  "title": "ThaiLex human alignment decisions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "decisions"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "review_status", "relation", "reviewer", "note"],
+        "properties": {
+          "candidate_id": { "type": "string", "pattern": "^[a-f0-9]{24}$" },
+          "review_status": { "enum": ["approved", "rejected"] },
+          "relation": { "type": ["string", "null"], "enum": ["exactMatch", "closeMatch", null] },
+          "reviewer": { "type": "string", "minLength": 1 },
+          "note": { "type": "string", "minLength": 1 }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "review_status": { "const": "approved" } } },
+            "then": { "properties": { "relation": { "enum": ["exactMatch", "closeMatch"] } } }
+          },
+          {
+            "if": { "properties": { "review_status": { "const": "rejected" } } },
+            "then": { "properties": { "relation": { "type": "null" } } }
+          }
+        ]
+      }
+    }
+  }
+}

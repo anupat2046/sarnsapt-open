@@ -1,0 +1,355 @@
+@prefix tlkg: <https://w3id.org/thailex/ontology/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+tlkg: a owl:Ontology ;
+    dcterms:title "ThaiLex Knowledge Graph Extension Vocabulary"@en ;
+    dcterms:title "ศัพท์ขยายสำหรับกราฟความรู้คำศัพท์ภาษาไทย"@th ;
+    dcterms:description "Minimal prototype vocabulary for versioned lexical assertions and provenance."@en ;
+    owl:versionInfo "0.7.0" .
+
+tlkg:DictionaryEdition a owl:Class ;
+    rdfs:label "Dictionary edition"@en ;
+    rdfs:label "ฉบับพจนานุกรม"@th .
+
+tlkg:CommunitySource a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "community-maintained source"@en ;
+    rdfs:label "แหล่งข้อมูลที่ดูแลโดยชุมชน"@th .
+
+tlkg:OrganizerSource a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "organizer-provided source"@en ;
+    rdfs:label "แหล่งข้อมูลที่ได้รับจากผู้จัด"@th .
+
+tlkg:DefinitionAssertion a owl:Class ;
+    rdfs:label "Definition assertion"@en ;
+    rdfs:label "ข้อความนิยามพร้อมแหล่งอ้างอิง"@th .
+
+tlkg:ExampleAssertion a owl:Class ;
+    rdfs:label "usage example with optional translation"@en ;
+    rdfs:label "ตัวอย่างการใช้พร้อมคำแปล"@th .
+
+tlkg:RelationAssertion a owl:Class ;
+    rdfs:label "Lexical relation assertion"@en ;
+    rdfs:label "ข้อความยืนยันความสัมพันธ์ของคำ"@th .
+
+tlkg:AlignmentAssertion a owl:Class ;
+    rdfs:subClassOf tlkg:RelationAssertion ;
+    rdfs:label "cross-source sense alignment assertion"@en ;
+    rdfs:label "ข้อเสนอการเชื่อมความหมายข้ามแหล่ง"@th .
+
+tlkg:AlignmentRun a owl:Class ;
+    rdfs:subClassOf prov:Activity ;
+    rdfs:label "alignment generation run"@en .
+
+tlkg:ReviewStatus a owl:Class ;
+    rdfs:label "alignment review status"@en .
+
+tlkg:PendingReviewStatus a tlkg:ReviewStatus, skos:Concept ;
+    skos:prefLabel "pending review"@en .
+
+tlkg:ApprovedReviewStatus a tlkg:ReviewStatus, skos:Concept ;
+    skos:prefLabel "approved"@en .
+
+tlkg:RejectedReviewStatus a tlkg:ReviewStatus, skos:Concept ;
+    skos:prefLabel "rejected"@en .
+
+tlkg:InterlingualIndex a owl:Class ;
+    rdfs:label "interlingual index"@en ;
+    rdfs:label "ดัชนีความหมายข้ามภาษา"@th .
+
+tlkg:AssertionStatus a owl:Class ;
+    rdfs:label "Assertion status"@en .
+
+tlkg:SourceFactStatus a tlkg:AssertionStatus, skos:Concept ;
+    skos:prefLabel "source fact"@en ;
+    skos:prefLabel "ข้อเท็จจริงจากแหล่งข้อมูล"@th .
+
+tlkg:ProposedStatus a tlkg:AssertionStatus, skos:Concept ;
+    skos:prefLabel "proposed"@en ;
+    skos:prefLabel "ข้อเสนอที่รอตรวจสอบ"@th .
+
+tlkg:ReviewedStatus a tlkg:AssertionStatus, skos:Concept ;
+    skos:prefLabel "reviewed source alignment"@en ;
+    skos:prefLabel "ความสัมพันธ์ที่ผ่านการตรวจ"@th .
+
+tlkg:RejectedStatus a tlkg:AssertionStatus, skos:Concept ;
+    skos:prefLabel "rejected alignment"@en ;
+    skos:prefLabel "ความสัมพันธ์ที่ไม่ผ่านการตรวจ"@th .
+
+tlkg:hasDefinition a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range tlkg:DefinitionAssertion ;
+    rdfs:label "has definition assertion"@en .
+
+tlkg:hasSynsetDefinition a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range tlkg:DefinitionAssertion ;
+    rdfs:label "has synset definition assertion"@en .
+
+tlkg:hasExample a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range tlkg:ExampleAssertion ;
+    rdfs:label "has usage example"@en .
+
+tlkg:interlingualIndex a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range tlkg:InterlingualIndex ;
+    rdfs:label "aligned through interlingual index"@en .
+
+tlkg:inEdition a owl:ObjectProperty ;
+    rdfs:range tlkg:DictionaryEdition ;
+    rdfs:label "in dictionary edition"@en .
+
+tlkg:assertionStatus a owl:ObjectProperty ;
+    rdfs:range tlkg:AssertionStatus ;
+    rdfs:label "assertion status"@en .
+
+tlkg:possiblySameSense a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range ontolex:LexicalSense ;
+    rdfs:label "possibly the same sense"@en .
+
+tlkg:synonym a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "synonymous concept"@en .
+
+tlkg:antonym a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "antonymous concept"@en .
+
+tlkg:hypernym a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    owl:inverseOf tlkg:hyponym ;
+    rdfs:label "hypernym concept"@en .
+
+tlkg:hyponym a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    owl:inverseOf tlkg:hypernym ;
+    rdfs:label "hyponym concept"@en .
+
+tlkg:similar a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "similar concept"@en .
+
+tlkg:holonym a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    owl:inverseOf tlkg:meronym ;
+    rdfs:label "holonym concept"@en .
+
+tlkg:meronym a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    owl:inverseOf tlkg:holonym ;
+    rdfs:label "meronym concept"@en .
+
+tlkg:coordinateTerm a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "coordinate term concept"@en .
+
+tlkg:derivedTerm a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "derived term concept"@en .
+
+tlkg:relatedTerm a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "related term concept"@en .
+
+tlkg:entails a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "entails"@en .
+
+tlkg:causes a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "causes"@en .
+
+tlkg:domainTopic a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "domain topic"@en .
+
+tlkg:attribute a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "attribute"@en .
+
+tlkg:originalPartOfSpeech a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "original source POS value"@en .
+
+tlkg:recordKind a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "normalized record kind"@en .
+
+tlkg:policyDecision a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "data policy decision"@en .
+
+tlkg:qualityFlag a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "data quality flag"@en .
+
+tlkg:sourceRecordId a owl:DatatypeProperty ;
+    rdfs:domain prov:Entity ;
+    rdfs:range xsd:string ;
+    rdfs:label "source record identifier"@en .
+
+tlkg:senseNumber a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "sense number in the source"@en .
+
+tlkg:sourceNote a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "note preserved from the source"@en .
+
+tlkg:definitionText a owl:DatatypeProperty ;
+    rdfs:domain tlkg:DefinitionAssertion ;
+    rdfs:range rdf:langString ;
+    rdfs:label "definition text"@en .
+
+tlkg:exampleText a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range rdf:langString ;
+    rdfs:label "usage example"@en .
+
+tlkg:synsetExampleText a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalConcept ;
+    rdfs:range rdf:langString ;
+    rdfs:label "synset usage example"@en .
+
+tlkg:sourceRelationType a owl:DatatypeProperty ;
+    rdfs:domain tlkg:RelationAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "original relation type"@en .
+
+tlkg:etymologyText a owl:DatatypeProperty ;
+    rdfs:domain prov:Entity ;
+    rdfs:range rdf:langString ;
+    rdfs:label "etymology text"@en .
+
+tlkg:formTag a owl:DatatypeProperty ;
+    rdfs:domain ontolex:Form ;
+    rdfs:range xsd:string ;
+    rdfs:label "source form tag"@en .
+
+tlkg:romanization a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "romanization"@en .
+
+tlkg:exampleTranslation a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range rdf:langString ;
+    rdfs:label "example translation"@en .
+
+tlkg:rawRecordText a owl:DatatypeProperty ;
+    rdfs:domain prov:Entity ;
+    rdfs:range xsd:string ;
+    rdfs:label "serialized original source record"@en .
+
+tlkg:confidence a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "heuristic alignment confidence"@en .
+
+tlkg:semanticSimilarity a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "lexical evidence similarity"@en .
+
+tlkg:posCompatibility a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "part-of-speech compatibility"@en .
+
+tlkg:alignmentMethod a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "alignment method"@en .
+
+tlkg:normalizedLemma a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range rdf:langString ;
+    rdfs:label "normalized candidate lemma"@en .
+
+tlkg:leftSource a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "left source identifier"@en .
+
+tlkg:rightSource a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "right source identifier"@en .
+
+tlkg:recommendedRelation a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "automatically recommended relation"@en .
+
+tlkg:reviewStatus a owl:ObjectProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range tlkg:ReviewStatus ;
+    rdfs:label "review status"@en .
+
+tlkg:reviewedBy a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "reviewer identity"@en .
+
+tlkg:reviewNote a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "review note"@en .
+
+tlkg:mapsToDemoConcept a owl:ObjectProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range ontolex:LexicalConcept ;
+    rdfs:label "maps to curated demo concept"@en ;
+    rdfs:label "เชื่อมไปยังความหมายกลางที่คัดแล้ว"@th .
+
+tlkg:mappingRelation a owl:DatatypeProperty ;
+    rdfs:domain tlkg:AlignmentAssertion ;
+    rdfs:range xsd:string ;
+    rdfs:label "curated mapping relation"@en ;
+    rdfs:label "ระดับความสัมพันธ์ที่ใช้เชื่อม"@th .
+
+tlkg:sourceLocator a owl:DatatypeProperty ;
+    rdfs:domain prov:Entity ;
+    rdfs:range xsd:string ;
+    rdfs:label "source row, range, or paragraph locator"@en ;
+    rdfs:label "ตำแหน่งในไฟล์ต้นฉบับ"@th .
+
+tlkg:register a owl:DatatypeProperty ;
+    rdfs:domain ontolex:LexicalSense ;
+    rdfs:range xsd:string ;
+    rdfs:label "usage register"@en ;
+    rdfs:label "ระดับหรือบริบทการใช้คำ"@th .
+
+tlkg:pronunciationText a owl:DatatypeProperty ;
+    rdfs:domain ontolex:Form ;
+    rdfs:range xsd:string ;
+    rdfs:label "source pronunciation text"@en ;
+    rdfs:label "คำอ่านจากต้นฉบับ"@th .

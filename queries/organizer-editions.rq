@@ -1,0 +1,16 @@
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT ?graph ?edition ?editionTitle ?dataset ?datasetTitle
+WHERE {
+  GRAPH ?graph {
+    ?dataset a tlkg:OrganizerSource ;
+             dcterms:title ?datasetTitle .
+    ?edition a tlkg:DictionaryEdition ;
+             dcterms:title ?editionTitle ;
+             prov:wasDerivedFrom ?dataset .
+  }
+  FILTER(STRSTARTS(STR(?graph), "https://w3id.org/thailex/graph/organizer/"))
+}
+ORDER BY ?graph

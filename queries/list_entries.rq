@@ -1,0 +1,13 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?entry ?lemma (COUNT(DISTINCT ?sense) AS ?senseCount)
+WHERE {
+  ?entry a ontolex:LexicalEntry ;
+         rdfs:label ?lemma ;
+         ontolex:sense ?sense .
+  FILTER(LANG(?lemma) = "th")
+}
+GROUP BY ?entry ?lemma
+ORDER BY ?lemma
+

@@ -1,0 +1,24 @@
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT ?lemma ?sense ?definition ?sourceRecordId ?source
+WHERE {
+  VALUES ?lemma { "ขัน"@th }
+  GRAPH <https://w3id.org/thailex/graph/wiktionary> {
+    ?entry a ontolex:LexicalEntry ;
+           rdfs:label ?lemma ;
+           ontolex:sense ?sense .
+    ?sense tlkg:sourceRecordId ?sourceRecordId ;
+           prov:wasDerivedFrom ?record .
+    OPTIONAL {
+      ?sense tlkg:hasDefinition ?definitionAssertion .
+      ?definitionAssertion tlkg:definitionText ?definition .
+    }
+    ?record prov:wasDerivedFrom ?dataset .
+    ?dataset dcterms:source ?source .
+  }
+}
+ORDER BY ?sense ?definition

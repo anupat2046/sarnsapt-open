@@ -1,0 +1,83 @@
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+PREFIX vartrans: <http://www.w3.org/ns/lemon/vartrans#>
+
+SELECT DISTINCT ?kind ?value ?resource ?sourceGraph ?tag ?translation ?translationLanguage
+WHERE {
+  VALUES ?sense { {{SENSE_IRI}} }
+  GRAPH ?sourceGraph {
+    ?entry ontolex:sense ?sense .
+    {
+      ?sense tlkg:senseNumber ?value .
+      BIND("sense-number" AS ?kind)
+      BIND(?sense AS ?resource)
+    }
+    UNION {
+      ?sense tlkg:qualityFlag ?value .
+      BIND("quality-flag" AS ?kind)
+      BIND(?sense AS ?resource)
+    }
+    UNION {
+      ?sense tlkg:sourceNote ?value .
+      BIND("source-note" AS ?kind)
+      BIND(?sense AS ?resource)
+    }
+    UNION {
+      ?translationResource a vartrans:Translation ;
+        vartrans:source ?sense ;
+        vartrans:target ?resource .
+      ?resource rdfs:label ?value .
+      BIND("translation" AS ?kind)
+    }
+    UNION {
+      ?entry ontolex:otherForm ?resource .
+      ?resource ontolex:phoneticRep ?value .
+      OPTIONAL { ?resource tlkg:formTag ?tag }
+      BIND("pronunciation" AS ?kind)
+    }
+    UNION {
+      ?entry ontolex:otherForm ?resource .
+      ?resource ontolex:writtenRep ?value .
+      OPTIONAL { ?resource tlkg:formTag ?tag }
+      BIND("form" AS ?kind)
+    }
+    UNION {
+      { ?entry ontolex:otherForm ?resource } UNION { BIND(?sense AS ?resource) }
+      ?resource tlkg:romanization ?value .
+      BIND("romanization" AS ?kind)
+    }
+    UNION {
+      ?sense prov:wasDerivedFrom/prov:specializationOf ?resource .
+      ?resource tlkg:etymologyText ?value .
+      BIND("etymology" AS ?kind)
+    }
+    UNION {
+      ?sense tlkg:hasExample ?resource .
+      ?resource tlkg:exampleText ?value .
+      OPTIONAL {
+        ?resource tlkg:exampleTranslation ?translation .
+        BIND(LANG(?translation) AS ?translationLanguage)
+      }
+      BIND("example" AS ?kind)
+    }
+    UNION {
+      ?sense tlkg:exampleText ?value .
+      FILTER NOT EXISTS { ?sense tlkg:hasExample ?anyExample }
+      OPTIONAL { ?sense tlkg:exampleTranslation ?translation }
+      BIND("example" AS ?kind)
+      BIND(?sense AS ?resource)
+      BIND(LANG(?translation) AS ?translationLanguage)
+    }
+  }
+  FILTER(?sourceGraph IN (
+    <https://w3id.org/thailex/graph/lexitron>,
+    <https://w3id.org/thailex/graph/thai-wordnet>,
+    <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+    <https://w3id.org/thailex/graph/th-wiktionary>
+  ))
+}
+ORDER BY ?kind ?resource ?value
+LIMIT 500

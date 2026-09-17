@@ -1,0 +1,26 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?lemma (COUNT(DISTINCT ?sense) AS ?senseCount)
+       (GROUP_CONCAT(DISTINCT STR(?sourceGraph); separator="|") AS ?sourceGraphs)
+WHERE {
+  GRAPH ?sourceGraph {
+    ?entry a ontolex:LexicalEntry ;
+           rdfs:label ?lemma ;
+           ontolex:sense ?sense .
+  }
+  FILTER(
+    ?sourceGraph IN (
+      <https://w3id.org/thailex/graph/lexitron>,
+      <https://w3id.org/thailex/graph/thai-wordnet>,
+      <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+      <https://w3id.org/thailex/graph/th-wiktionary>
+    )
+    || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/")
+    || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/demo-")
+  )
+  FILTER(CONTAINS(LCASE(STR(?lemma)), LCASE({{QUERY}})))
+}
+GROUP BY ?lemma
+ORDER BY DESC(STRSTARTS(LCASE(STR(?lemma)), LCASE({{QUERY}}))) STRLEN(STR(?lemma)) STR(?lemma)
+LIMIT {{LIMIT}}

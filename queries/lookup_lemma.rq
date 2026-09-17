@@ -1,0 +1,20 @@
+PREFIX lexinfo: <https://lexinfo.net/ontology/3.0/lexinfo#>
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT ?entry ?sense ?pos ?definition ?example ?sourceRecord
+WHERE {
+  ?entry a ontolex:LexicalEntry ;
+         rdfs:label ?lemma ;
+         ontolex:sense ?sense .
+  FILTER(STR(?lemma) = "ขัน")
+
+  ?sense tlkg:hasDefinition ?definitionAssertion .
+  ?definitionAssertion tlkg:definitionText ?definition ;
+                       <http://www.w3.org/ns/prov#wasDerivedFrom> ?sourceRecord .
+  OPTIONAL { ?sense lexinfo:partOfSpeech ?pos }
+  OPTIONAL { ?sense tlkg:exampleText ?example }
+}
+ORDER BY ?sense
+

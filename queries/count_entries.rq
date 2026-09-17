@@ -1,0 +1,10 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+
+SELECT (COUNT(DISTINCT ?entry) AS ?entryCount)
+       (COUNT(DISTINCT ?sense) AS ?senseCount)
+WHERE {
+  GRAPH <https://w3id.org/thailex/graph/demo-edition-a> {
+    ?entry a ontolex:LexicalEntry ;
+           ontolex:sense ?sense .
+  }
+}
