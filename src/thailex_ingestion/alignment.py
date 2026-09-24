@@ -20,6 +20,9 @@ REVIEWED_GRAPH_IRI = f"{BASE_IRI}/graph/alignment/reviewed"
 ALIGNMENT_POLICY_VERSION = "1.0.0"
 MAX_CANDIDATES_PER_SENSE_SOURCE = 3
 MIN_CANDIDATE_CONFIDENCE = 0.35
+AUTO_MIN_CONFIDENCE = 0.72
+AUTO_MIN_SEMANTIC_SIMILARITY = 0.35
+AUTO_BATCH_SIZE = 50
 
 SOURCE_GRAPHS = {
     f"{BASE_IRI}/graph/lexitron": "lexitron",
@@ -171,11 +174,39 @@ ORDER BY ?graph ?sense
         self._fetch_evidence(senses)
         return sorted(senses.values(), key=lambda item: (item["normalized_lemma"], item["source"], item["sense_uri"]))
 
+    def shared_lemmas(self, source_graph: str) -> set[str]:
+        """Lemmas of `source_graph` that at least one other source graph also has.
+
+        A link needs senses from two sources, so every other lemma can be skipped
+        without fetching its evidence. One query here replaces hundreds of
+        per-batch lookups on large dictionaries.
+        """
+        query = f"""
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?lemma WHERE {{
+  GRAPH <{source_graph}> {{
+    ?entry a ontolex:LexicalEntry ; rdfs:label ?lemma ; ontolex:sense ?sense .
+  }}
+  GRAPH ?other {{
+    ?otherEntry a ontolex:LexicalEntry ; rdfs:label ?lemma ; ontolex:sense ?otherSense .
+  }}
+  FILTER(?other != <{source_graph}> && {_source_graph_filter('?other')})
+}}
+"""
+        result = _sparql(self.endpoint, query, timeout=600)
+        return {
+            normalize_lemma(_binding_value(binding, "lemma"))
+            for binding in result.get("results", {}).get("bindings", [])
+        }
+
     def _fetch_evidence(self, senses: dict[str, dict[str, Any]]) -> None:
         sense_uris = sorted(senses)
         for start in range(0, len(sense_uris), 100):
             chunk = sense_uris[start:start + 100]
-            values = " ".join(f"<{uri}>" for uri in chunk)
+            # Each sense's own graph is already known; binding it up front lets
+            # GraphDB read one graph instead of scanning all and filtering.
+            values = " ".join(f"(<{uri}> <{senses[uri]['source_graph']}>)" for uri in chunk)
             query = f"""
 PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -183,30 +214,24 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX tlkg: <https://w3id.org/thailex/ontology/>
 PREFIX vartrans: <http://www.w3.org/ns/lemon/vartrans#>
 SELECT DISTINCT ?sense ?kind ?text WHERE {{
-  VALUES ?sense {{ {values} }}
+  VALUES (?sense ?sourceGraph) {{ {values} }}
   {{
     GRAPH ?sourceGraph {{ ?sense tlkg:hasDefinition/tlkg:definitionText ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("definition" AS ?kind)
   }} UNION {{
     GRAPH ?sourceGraph {{ ?translation vartrans:source ?sense ; vartrans:target/rdfs:label ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("translation" AS ?kind)
   }} UNION {{
     GRAPH ?sourceGraph {{ ?sense tlkg:exampleText ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("example" AS ?kind)
   }} UNION {{
     GRAPH ?sourceGraph {{ ?sense tlkg:hasExample/tlkg:exampleText ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("example" AS ?kind)
   }} UNION {{
     GRAPH ?sourceGraph {{ ?sense tlkg:hasExample/tlkg:exampleTranslation ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("translation" AS ?kind)
   }} UNION {{
     GRAPH ?sourceGraph {{ ?sense tlkg:exampleTranslation ?text }}
-    FILTER({_source_graph_filter('?sourceGraph')})
     BIND("translation" AS ?kind)
   }} UNION {{
     GRAPH <{BASE_IRI}/graph/thai-wordnet> {{
@@ -414,6 +439,103 @@ def generate_candidates(senses: Sequence[dict[str, Any]]) -> list[dict[str, Any]
             item["normalized_lemma"], -item["confidence"], item["candidate_id"]
         ),
     )
+
+
+def automatic_graph_iri(source_graph: str) -> str:
+    """Keep each imported source's machine proposals replaceable in isolation."""
+    if source_from_graph(source_graph) is None:
+        raise ValueError(f"Unsupported source graph for automatic alignment: {source_graph}")
+    suffix = source_graph.removeprefix(f"{BASE_IRI}/graph/")
+    if not re.fullmatch(r"[a-z0-9._-]+(?:/[a-z0-9._-]+)*", suffix):
+        raise ValueError(f"Unsafe source graph suffix: {suffix}")
+    return f"{PROPOSED_GRAPH_IRI}/auto/{suffix}"
+
+
+def lemmas_from_normalized_jsonl(path: Path) -> list[str]:
+    lemmas: set[str] = set()
+    with path.open(encoding="utf-8-sig") as stream:
+        for line_number, line in enumerate(stream, start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid normalized JSONL line {line_number}: {exc}") from exc
+            if isinstance(record, dict) and record.get("record_type") in {"metadata", "synset"}:
+                continue
+            if not isinstance(record, dict) or not isinstance(record.get("lemma"), str):
+                raise ValueError(f"Normalized JSONL line {line_number} has no lemma")
+            if record.get("language", "th") != "th":
+                continue
+            lemma = normalize_lemma(record["lemma"])
+            if lemma:
+                lemmas.add(lemma)
+    return sorted(lemmas)
+
+
+def select_automatic_candidates(
+    candidates: Sequence[dict[str, Any]], source_graph: str
+) -> list[dict[str, Any]]:
+    """Publish only evidence-bearing links as unreviewed graph suggestions."""
+    return [
+        candidate for candidate in candidates
+        if source_graph in {
+            candidate["left"]["source_graph"], candidate["right"]["source_graph"]
+        }
+        and candidate["confidence"] >= AUTO_MIN_CONFIDENCE
+        and candidate["semantic_similarity"] >= AUTO_MIN_SEMANTIC_SIMILARITY
+        and candidate["review_status"] == "pending"
+    ]
+
+
+def build_automatic_alignment(
+    endpoint: str, normalized_input: Path, source_graph: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    proposal_graph = automatic_graph_iri(source_graph)
+    lemmas = lemmas_from_normalized_jsonl(normalized_input)
+    if not lemmas:
+        raise ValueError("No Thai lemmas found in normalized input")
+    provider = GraphSenseProvider(endpoint)
+    input_lemma_count = len(lemmas)
+    shared = provider.shared_lemmas(source_graph)
+    lemmas = [lemma for lemma in lemmas if lemma in shared]
+    selected: dict[str, dict[str, Any]] = {}
+    source_sense_count = 0
+    compared_count = 0
+    for start in range(0, len(lemmas), AUTO_BATCH_SIZE):
+        batch = lemmas[start:start + AUTO_BATCH_SIZE]
+        senses = provider.fetch(batch)
+        source_sense_count += sum(sense["source_graph"] == source_graph for sense in senses)
+        candidates = generate_candidates(senses)
+        compared_count += len(candidates)
+        for candidate in select_automatic_candidates(candidates, source_graph):
+            selected[candidate["candidate_id"]] = candidate
+    if lemmas and source_sense_count == 0:
+        raise ValueError(f"No imported senses found in source graph: {source_graph}")
+    proposals = sorted(
+        selected.values(),
+        key=lambda item: (item["normalized_lemma"], -item["confidence"], item["candidate_id"]),
+    )
+    report = {
+        "status": "passed" if proposals else "no_matching_evidence",
+        "source_graph": source_graph,
+        "proposal_graph": proposal_graph,
+        "normalized_input": str(normalized_input),
+        "lemma_count": input_lemma_count,
+        "shared_lemma_count": len(lemmas),
+        "source_sense_count": source_sense_count,
+        "compared_candidate_count": compared_count,
+        "proposed_count": len(proposals),
+        "policy": {
+            "relation": "possiblySameSense",
+            "review_status": "pending",
+            "minimum_confidence": AUTO_MIN_CONFIDENCE,
+            "minimum_semantic_similarity": AUTO_MIN_SEMANTIC_SIMILARITY,
+            "confidence_meaning": "heuristic ranking score, not a calibrated probability",
+            "exact_or_close": "requires an approved human decision",
+        },
+    }
+    return proposals, report
 
 
 def _source_pair(candidate: dict[str, Any]) -> str:

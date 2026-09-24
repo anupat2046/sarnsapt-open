@@ -1,8 +1,9 @@
 [CmdletBinding()]
 param(
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
-    [string]$ValidationReport
+    [string]$ValidationReport,
+    [switch]$ProposalOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,11 +38,15 @@ $expectedExact = if ($expected.approved_relation_counts.exactMatch) { [int]$expe
 $expectedClose = if ($expected.approved_relation_counts.closeMatch) { [int]$expected.approved_relation_counts.closeMatch } else { 0 }
 $checks = @(
     @("Proposed assertions", $actual.Proposed, [int]$expected.pending_count),
-    @("Reviewed assertions", $actual.Reviewed, ([int]$expected.approved_count + [int]$expected.rejected_count)),
-    @("Pending possiblySameSense edges", $actual.PendingEdges, [int]$expected.pending_count),
-    @("Approved exactMatch edges", $actual.ExactEdges, $expectedExact),
-    @("Approved closeMatch edges", $actual.CloseEdges, $expectedClose)
+    @("Pending possiblySameSense edges", $actual.PendingEdges, [int]$expected.pending_count)
 )
+if (-not $ProposalOnly) {
+    $checks += @(
+        @("Reviewed assertions", $actual.Reviewed, ([int]$expected.approved_count + [int]$expected.rejected_count)),
+        @("Approved exactMatch edges", $actual.ExactEdges, $expectedExact),
+        @("Approved closeMatch edges", $actual.CloseEdges, $expectedClose)
+    )
+}
 foreach ($check in $checks) {
     if ($check[1] -ne $check[2]) {
         throw "$($check[0]): expected $($check[2]), found $($check[1])."

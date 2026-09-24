@@ -2,7 +2,7 @@
 param(
     [string]$LemmaFile,
     [string]$Decisions,
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
     [switch]$SkipImport
 )
@@ -17,6 +17,9 @@ if (-not (Test-Path -LiteralPath $LemmaFile -PathType Leaf)) {
 }
 if ($Decisions -and -not (Test-Path -LiteralPath $Decisions -PathType Leaf)) {
     throw "Alignment decisions file not found: $Decisions"
+}
+if ($Decisions -and -not $SkipImport) {
+    throw "This script no longer bulk-imports reviewed decisions because it could overwrite existing human reviews. Use -SkipImport to generate review files, then submit decisions through the Expert Review API."
 }
 
 try {
@@ -78,11 +81,11 @@ try {
             }
         }
         Replace-NamedGraph -GraphIri "https://w3id.org/thailex/graph/alignment/proposed" -FilePath $proposedRdf
-        Replace-NamedGraph -GraphIri "https://w3id.org/thailex/graph/alignment/reviewed" -FilePath $reviewedRdf
         & (Join-Path $PSScriptRoot "verify-alignments.ps1") `
             -BaseUrl $BaseUrl `
             -RepositoryId $RepositoryId `
-            -ValidationReport $validationOutput
+            -ValidationReport $validationOutput `
+            -ProposalOnly
     }
 }
 finally {

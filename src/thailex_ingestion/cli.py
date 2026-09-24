@@ -38,6 +38,7 @@ from .organizer import (
 )
 from .alignment import (
     build_alignment,
+    build_automatic_alignment,
     candidates_to_turtle,
     select_review_batch,
     write_json as write_alignment_json,
@@ -273,6 +274,14 @@ def _audit_organizer(args: argparse.Namespace) -> int:
     return 1 if report["status"] == "failed" else 0
 
 
+def _prepare_organizer(args: argparse.Namespace) -> int:
+    from .organizer_prepare import prepare
+
+    report = prepare(args.profile, args.input, args.output)
+    print(json.dumps(report, ensure_ascii=False))
+    return 0 if report["prepared_rows"] else 1
+
+
 def _build_organizer(args: argparse.Namespace) -> int:
     records, report, mapping = build_organizer_dataset(
         args.input, args.mapping, args.audit_report
@@ -331,6 +340,20 @@ def _build_alignments(args: argparse.Namespace) -> int:
         )
     )
     return 1 if report["status"] == "failed" else 0
+
+
+def _build_auto_alignments(args: argparse.Namespace) -> int:
+    candidates, report = build_automatic_alignment(
+        args.endpoint, args.normalized_input, args.source_graph
+    )
+    write_alignment_jsonl(args.candidates_output, candidates)
+    args.rdf_output.parent.mkdir(parents=True, exist_ok=True)
+    args.rdf_output.write_text(
+        candidates_to_turtle(candidates, "pending"), encoding="utf-8", newline="\n"
+    )
+    write_alignment_json(args.validation_output, report)
+    print(json.dumps(report, ensure_ascii=False))
+    return 0
 
 
 def _select_alignment_review_batch(args: argparse.Namespace) -> int:
@@ -444,6 +467,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     build_wiktextract_parser.set_defaults(handler=_build_wiktextract)
 
+    prepare_organizer = subparsers.add_parser(
+        "prepare-organizer",
+        help="Split an organizer XLSX/DOCX file into the flat CSV read by the organizer adapter",
+    )
+    prepare_organizer.add_argument(
+        "--profile", required=True,
+        choices=("royal-2542", "royal-2554", "royal-2569", "technical-terms", "transliterations", "dialect-docx"),
+    )
+    prepare_organizer.add_argument("--input", type=Path, required=True)
+    prepare_organizer.add_argument("--output", type=Path, required=True)
+    prepare_organizer.set_defaults(handler=_prepare_organizer)
+
     audit_organizer = subparsers.add_parser(
         "audit-organizer",
         help="Audit an organizer dataset using an explicit mapping config",
@@ -478,6 +513,18 @@ def build_parser() -> argparse.ArgumentParser:
     build_alignments.add_argument("--reviewed-rdf-output", type=Path, required=True)
     build_alignments.add_argument("--validation-output", type=Path, required=True)
     build_alignments.set_defaults(handler=_build_alignments)
+
+    auto_alignments = subparsers.add_parser(
+        "build-auto-alignments",
+        help="Generate conservative unreviewed sense links for one imported source graph",
+    )
+    auto_alignments.add_argument("--endpoint", required=True)
+    auto_alignments.add_argument("--normalized-input", type=Path, required=True)
+    auto_alignments.add_argument("--source-graph", required=True)
+    auto_alignments.add_argument("--candidates-output", type=Path, required=True)
+    auto_alignments.add_argument("--rdf-output", type=Path, required=True)
+    auto_alignments.add_argument("--validation-output", type=Path, required=True)
+    auto_alignments.set_defaults(handler=_build_auto_alignments)
 
     select_batch = subparsers.add_parser(
         "select-alignment-review-batch",

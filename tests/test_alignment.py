@@ -2,15 +2,20 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from thailex_ingestion.alignment import (
     apply_decisions,
+    automatic_graph_iri,
+    build_automatic_alignment,
     candidates_to_turtle,
     generate_candidates,
+    lemmas_from_normalized_jsonl,
     load_decisions,
     normalize_lemma,
     normalize_pos,
     score_candidate,
+    select_automatic_candidates,
     select_review_batch,
 )
 
@@ -172,6 +177,69 @@ class AlignmentTests(unittest.TestCase):
                 for item in selected if item["normalized_lemma"] == lemma
             }
             self.assertEqual(len(pairs), 2)
+
+    def test_normalized_jsonl_extracts_unique_thai_lemmas(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.jsonl"
+            path.write_text(
+                '\n'.join([
+                    json.dumps({"record_type": "metadata", "source": "omw-th"}),
+                    json.dumps({"record_type": "entry", "lemma": " ขัน ", "language": "th"}, ensure_ascii=False),
+                    json.dumps({"lemma": "ขัน", "language": "th"}, ensure_ascii=False),
+                    json.dumps({"lemma": "bone", "language": "en"}),
+                ]) + '\n', encoding="utf-8"
+            )
+            self.assertEqual(lemmas_from_normalized_jsonl(path), ["ขัน"])
+
+    def test_automatic_links_require_matching_source_and_comparable_evidence(self) -> None:
+        source_graph = "https://w3id.org/thailex/graph/organizer/test/edition-1"
+        left = dict(self.left, source="organizer:test:edition-1", source_graph=source_graph)
+        right = dict(self.right)
+        good = score_candidate(left, right)
+        self.assertEqual(select_automatic_candidates([good], source_graph), [good])
+        self.assertEqual(good["relation"], "possiblySameSense")
+        self.assertEqual(good["review_status"], "pending")
+        no_evidence = score_candidate(dict(left, evidence=[]), right)
+        self.assertEqual(select_automatic_candidates([no_evidence], source_graph), [])
+        self.assertEqual(select_automatic_candidates([good], "https://w3id.org/thailex/graph/lexitron"), [])
+        self.assertEqual(
+            automatic_graph_iri(source_graph),
+            "https://w3id.org/thailex/graph/alignment/proposed/auto/organizer/test/edition-1",
+        )
+
+    def test_auto_alignment_batches_and_does_not_require_a_match(self) -> None:
+        source_graph = "https://w3id.org/thailex/graph/organizer/test/edition-1"
+        left = dict(self.left, source="organizer:test:edition-1", source_graph=source_graph)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.jsonl"
+            path.write_text(json.dumps({"lemma": "ขัน"}, ensure_ascii=False) + "\n", encoding="utf-8")
+            with patch("thailex_ingestion.alignment.GraphSenseProvider") as provider:
+                provider.return_value.shared_lemmas.return_value = {"ขัน"}
+                provider.return_value.fetch.return_value = [left, self.right]
+                proposals, report = build_automatic_alignment("http://example.invalid", path, source_graph)
+                self.assertEqual(len(proposals), 1)
+                self.assertEqual(report["proposed_count"], 1)
+                provider.return_value.fetch.assert_called_once_with(["ขัน"])
+                provider.return_value.fetch.return_value = [left]
+                proposals, report = build_automatic_alignment("http://example.invalid", path, source_graph)
+                self.assertEqual(proposals, [])
+                self.assertEqual(report["status"], "no_matching_evidence")
+
+    def test_auto_alignment_skips_lemmas_found_in_only_one_source(self) -> None:
+        source_graph = "https://w3id.org/thailex/graph/organizer/test/edition-1"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.jsonl"
+            path.write_text(
+                "\n".join(json.dumps({"lemma": word}, ensure_ascii=False) for word in ("ขัน", "ดาว")) + "\n",
+                encoding="utf-8",
+            )
+            with patch("thailex_ingestion.alignment.GraphSenseProvider") as provider:
+                provider.return_value.shared_lemmas.return_value = set()
+                proposals, report = build_automatic_alignment("http://example.invalid", path, source_graph)
+        provider.return_value.fetch.assert_not_called()
+        self.assertEqual(proposals, [])
+        self.assertEqual((report["lemma_count"], report["shared_lemma_count"]), (2, 0))
+        self.assertEqual(report["status"], "no_matching_evidence")
 
 
 if __name__ == "__main__":
