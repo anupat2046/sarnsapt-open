@@ -2,11 +2,12 @@
 param(
     [string]$ThaiInput,
     [string]$EnglishInput,
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
     [int]$BatchSize = 1000,
     [switch]$SkipBuild,
-    [switch]$SkipImport
+    [switch]$SkipImport,
+    [switch]$SkipAutoAlignment
 )
 
 $ErrorActionPreference = "Stop"
@@ -109,6 +110,13 @@ try {
             -Mode Full `
             -ValidationReport $validationOutput
         $verifyTimer.Stop()
+        if (-not $SkipAutoAlignment) {
+            & (Join-Path $PSScriptRoot "build-auto-alignments.ps1") `
+                -NormalizedInput $thaiNormalized `
+                -SourceGraph "https://w3id.org/thailex/graph/thai-wordnet" `
+                -BaseUrl $BaseUrl `
+                -RepositoryId $RepositoryId
+        }
 
         $lookupTimer = [System.Diagnostics.Stopwatch]::StartNew()
         $lookupResult = & curl.exe --fail --silent --show-error `

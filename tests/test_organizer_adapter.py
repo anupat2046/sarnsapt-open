@@ -189,3 +189,36 @@ class OrganizerAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class OrganizerLanguageDetailTests(unittest.TestCase):
+    def test_pronunciation_etymology_and_notes_reach_rdf(self) -> None:
+        mapping = mapping_for("csv")
+        mapping["fields"].update({
+            "pronunciations": {"path": "read", "separator": "|"},
+            "etymology": {"path": "etym"},
+            "notes": {"path": "notes", "separator": "|"},
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = root / "input.csv"
+            with data.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=["id", "lemma", "pos", "sense", "definition", "examples", "synonyms", "antonyms", "read", "etym", "notes"])
+                writer.writeheader()
+                writer.writerow({"id": "r1", "lemma": "กรง", "pos": "V", "sense": "๑", "definition": "สิ่งที่ทำเป็นซี่ ๆ", "read": "กฺรง|[krong]", "etym": "เทียบ มลายู กุรง", "notes": "ระดับภาษา: วรรณ"})
+            mapping_path = root / "mapping.json"
+            mapping_path.write_text(json.dumps(mapping, ensure_ascii=False), encoding="utf-8")
+            report, _, _, _ = audit_dataset(data, mapping_path)
+            audit_path = root / "audit.json"
+            write_json(audit_path, report)
+            records, _, loaded = build_dataset(data, mapping_path, audit_path)
+            turtle = records_to_turtle(records, loaded)
+        record = records[0]
+        self.assertEqual(record["pronunciations"], ["กฺรง", "[krong]"])
+        self.assertEqual(record["etymology"], "เทียบ มลายู กุรง")
+        self.assertEqual(record["notes"], ["ระดับภาษา: วรรณ"])
+        self.assertIn('ontolex:phoneticRep "กฺรง"', turtle)
+        self.assertIn('tlkg:etymologyText "เทียบ มลายู กุรง"@th', turtle)
+        self.assertIn('tlkg:sourceNote "ระดับภาษา: วรรณ"@th', turtle)
+        self.assertIn('tlkg:senseNumber "๑"', turtle)

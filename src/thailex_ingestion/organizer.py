@@ -389,6 +389,9 @@ def normalize_record(
     definition = _first(adapter, raw, mapping, "definition") or None
     source_sense_number = _first(adapter, raw, mapping, "sense_number")
     sense_number = source_sense_number or source_record_id
+    pronunciations = adapter.values(raw, _field_spec(mapping, "pronunciations"))
+    etymology = _first(adapter, raw, mapping, "etymology") or None
+    notes = adapter.values(raw, _field_spec(mapping, "notes"))
     translations: list[dict[str, str]] = []
     translation_spec = _field_spec(mapping, "translations")
     if translation_spec:
@@ -452,7 +455,11 @@ def normalize_record(
         "source_pos": source_pos or None,
         "pos_status": pos_status,
         "sense_number": sense_number,
+        "source_sense_number": source_sense_number or None,
         "definition": definition,
+        "pronunciations": pronunciations,
+        "etymology": etymology,
+        "notes": notes,
         "record_kind": record_kind,
         "policy_decision": policy_decision,
         "quality_flags": quality_flags,
@@ -784,6 +791,14 @@ def records_to_turtle(
             )
         for flag in record["quality_flags"]:
             sense_predicates.append(f"tlkg:qualityFlag {_literal(flag)}")
+        if record.get("source_sense_number"):
+            sense_predicates.append(
+                f"tlkg:senseNumber {_literal(record['source_sense_number'])}"
+            )
+        for note in record.get("notes", []):
+            sense_predicates.append(
+                f"tlkg:sourceNote {_literal(note)}@{record['language']}"
+            )
         lines.extend(
             [
                 f"<{sense}> " + " ;\n    ".join(sense_predicates) + " .",
@@ -799,6 +814,28 @@ def records_to_turtle(
                     f"    prov:wasDerivedFrom <{source_record}> ;",
                     "    tlkg:assertionStatus tlkg:SourceFactStatus ;",
                     f"    tlkg:inEdition <{edition}> .",
+                ]
+            )
+        for pronunciation_text in record.get("pronunciations", []):
+            pronunciation_id = _stable_id(record["source_record_id"], "pronunciation", pronunciation_text)
+            pronunciation = (
+                f"{BASE_IRI}/form/organizer/{source_id}/{edition_id}/{pronunciation_id}"
+            )
+            lines.extend(
+                [
+                    f"<{entry}> ontolex:otherForm <{pronunciation}> .",
+                    f"<{pronunciation}> a ontolex:Form ;",
+                    f"    ontolex:phoneticRep {_literal(pronunciation_text)} ;",
+                    f"    prov:wasDerivedFrom <{source_record}> .",
+                ]
+            )
+        if record.get("etymology"):
+            etymology = f"{BASE_IRI}/etymology/organizer/{source_id}/{edition_id}/{record_id}"
+            lines.extend(
+                [
+                    f"<{source_record}> prov:specializationOf <{etymology}> .",
+                    f"<{etymology}> a prov:Entity ;",
+                    f"    tlkg:etymologyText {_literal(record['etymology'])}@{record['language']} .",
                 ]
             )
         raw_text = json.dumps(record["raw_record"], ensure_ascii=False, sort_keys=True)

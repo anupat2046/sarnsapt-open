@@ -2,10 +2,11 @@
 param(
     [Parameter(Mandatory = $true)][Alias("Input")][string]$InputPath,
     [Parameter(Mandatory = $true)][Alias("Mapping")][string]$MappingPath,
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
     [switch]$SkipImport,
-    [switch]$ReplaceExisting
+    [switch]$ReplaceExisting,
+    [switch]$SkipAutoAlignment
 )
 
 $ErrorActionPreference = "Stop"
@@ -105,6 +106,13 @@ try {
             -BaseUrl $BaseUrl `
             -RepositoryId $RepositoryId `
             -ValidationReport $validationOutput
+        if (-not $SkipAutoAlignment) {
+            & (Join-Path $PSScriptRoot "build-auto-alignments.ps1") `
+                -NormalizedInput $normalizedOutput `
+                -SourceGraph $graphIri `
+                -BaseUrl $BaseUrl `
+                -RepositoryId $RepositoryId
+        }
     }
 }
 finally {

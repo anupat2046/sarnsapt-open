@@ -2,12 +2,13 @@
 param(
     [string]$Input,
     [string]$LemmaFile,
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
     [ValidateSet("en", "th")]
     [string]$Edition = "en",
     [switch]$Demo,
-    [switch]$SkipImport
+    [switch]$SkipImport,
+    [switch]$SkipAutoAlignment
 )
 
 $ErrorActionPreference = "Stop"
@@ -100,6 +101,13 @@ try {
             -ValidationReport $validationOutput `
             -Edition $Edition `
             -GraphIri $graphIri
+        if (-not $SkipAutoAlignment) {
+            & (Join-Path $PSScriptRoot "build-auto-alignments.ps1") `
+                -NormalizedInput $normalizedOutput `
+                -SourceGraph $graphIri `
+                -BaseUrl $BaseUrl `
+                -RepositoryId $RepositoryId
+        }
     }
 }
 finally {

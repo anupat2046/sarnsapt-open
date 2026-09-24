@@ -3,11 +3,12 @@ param(
     [string]$InputPath,
     [string]$LemmaFile,
     [string]$PolicyPath,
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex",
     [string]$GraphIri = "https://w3id.org/thailex/graph/lexitron",
     [switch]$Full,
-    [switch]$SkipImport
+    [switch]$SkipImport,
+    [switch]$SkipAutoAlignment
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,6 +102,13 @@ try {
             -ValidationReport $validationOutput
         if ($LASTEXITCODE -ne 0) {
             throw "LEXiTRON GraphDB verification failed with exit code $LASTEXITCODE"
+        }
+        if (-not $SkipAutoAlignment -and $GraphIri -eq "https://w3id.org/thailex/graph/lexitron") {
+            & (Join-Path $PSScriptRoot "build-auto-alignments.ps1") `
+                -NormalizedInput $normalizedOutput `
+                -SourceGraph $GraphIri `
+                -BaseUrl $BaseUrl `
+                -RepositoryId $RepositoryId
         }
     }
 }
