@@ -18,9 +18,5 @@ WHERE {
     || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/")
     || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/demo-")
   )
-  FILTER(STRLEN(STR(?lemma)) >= 2)
-  FILTER(CONTAINS({{QUESTION}}, STR(?lemma)))
 }
 GROUP BY ?lemma
-ORDER BY DESC(?senseCount) DESC(STRLEN(STR(?lemma))) STR(?lemma)
-LIMIT {{LIMIT}}

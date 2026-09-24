@@ -1,4 +1,5 @@
 PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX tlkg: <https://w3id.org/thailex/ontology/>
 
@@ -28,9 +29,21 @@ WHERE {
         <https://w3id.org/thailex/graph/alignment/reviewed>
       )
       || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/")
+      || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/alignment/proposed/auto/")
       || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/demo-")
     )
     FILTER(isIRI(?object))
+    FILTER(
+      (?sourceGraph != <https://w3id.org/thailex/graph/alignment/proposed>
+        && !STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/alignment/proposed/auto/"))
+      || NOT EXISTS {
+        GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+          ?reviewedAssertion a tlkg:AlignmentAssertion ;
+            rdf:subject ?subject ; rdf:object ?object ;
+            tlkg:reviewStatus ?completedStatus .
+        }
+      }
+    )
   }
   OPTIONAL {
     GRAPH ?subjectLabelGraph {

@@ -3,7 +3,7 @@ PREFIX tlkg: <https://w3id.org/thailex/ontology/>
 
 SELECT DISTINCT ?assertion ?leftSense ?rightSense ?confidence ?semanticSimilarity
                 ?posCompatibility ?method ?recommendedRelation ?reviewStatus
-                ?decidedRelation ?reviewer ?reviewNote
+                ?decidedRelation ?reviewer ?reviewNote ?normalizedLemma
 WHERE {
   VALUES ?assertion { {{ASSERTION_IRI}} }
   {
@@ -20,12 +20,13 @@ WHERE {
                  tlkg:reviewStatus ?reviewStatus .
       OPTIONAL { ?assertion tlkg:reviewedBy ?reviewer }
       OPTIONAL { ?assertion tlkg:reviewNote ?reviewNote }
+      OPTIONAL { ?assertion tlkg:normalizedLemma ?normalizedLemma }
       BIND(IF(?reviewStatus = tlkg:ApprovedReviewStatus, STRAFTER(STR(?decidedPredicate), "http://www.w3.org/2004/02/skos/core#"), "") AS ?decidedRelation)
     }
   }
   UNION
   {
-    GRAPH <https://w3id.org/thailex/graph/alignment/proposed> {
+    GRAPH ?proposalGraph {
       ?assertion a tlkg:AlignmentAssertion ;
                  rdf:subject ?leftSense ;
                  rdf:object ?rightSense ;
@@ -33,10 +34,18 @@ WHERE {
                  tlkg:semanticSimilarity ?semanticSimilarity ;
                  tlkg:posCompatibility ?posCompatibility ;
                  tlkg:alignmentMethod ?method ;
+                 tlkg:normalizedLemma ?normalizedLemma ;
                  tlkg:recommendedRelation ?recommendedRelation ;
                  tlkg:reviewStatus ?reviewStatus .
     }
+    FILTER(?proposalGraph = <https://w3id.org/thailex/graph/alignment/proposed>
+      || STRSTARTS(STR(?proposalGraph), "https://w3id.org/thailex/graph/alignment/proposed/auto/"))
+    FILTER NOT EXISTS {
+      GRAPH <https://w3id.org/thailex/graph/alignment/reviewed> {
+        ?assertion tlkg:reviewStatus ?completedStatus
+      }
+    }
   }
 }
-ORDER BY DESC(?reviewer)
+ORDER BY DESC(?reviewer) DESC(?confidence)
 LIMIT 1

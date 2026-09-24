@@ -93,6 +93,117 @@ def _review_status(uri: str | None) -> str:
     }.get(tail, "pending")
 
 
+_RELATION_NAMES = {
+    "synonym", "antonym", "hypernym", "hyponym", "similar",
+    "holonym", "meronym", "entails", "causes", "domainTopic",
+    "attribute", "coordinateTerm", "derivedTerm", "relatedTerm",
+}
+
+
+def _details_from_rows(
+    rows: list[dict[str, dict[str, str]]],
+    candidate: SenseCandidate,
+    relation_rows: list[tuple[str, str, str, str]],
+) -> SenseLanguageDetails:
+    """Build details from sense_details rows and (relation, term, target, graph) tuples."""
+    values: dict[str, list[LanguageDetailValue]] = {
+        "translation": [],
+        "pronunciation": [],
+        "form": [],
+        "romanization": [],
+        "etymology": [],
+    }
+    value_index: dict[tuple[str, str, str | None], LanguageDetailValue] = {}
+    examples: list[ExampleDetail] = []
+    example_seen: set[tuple[str, str | None, str | None, str | None]] = set()
+    quality_flags: list[str] = []
+    source_notes: list[str] = []
+    sense_number: str | None = None
+    for row in rows:
+        kind = _value(row, "kind")
+        value = _value(row, "value")
+        source_graph = _value(row, "sourceGraph") or candidate.source_graph
+        if not kind or value is None:
+            continue
+        if kind == "sense-number":
+            sense_number = sense_number or value
+        elif kind == "quality-flag":
+            if value not in quality_flags:
+                quality_flags.append(value)
+        elif kind == "source-note":
+            if value not in source_notes:
+                source_notes.append(value)
+        elif kind == "example":
+            key = (
+                value,
+                _language(row, "value"),
+                _value(row, "translation"),
+                _value(row, "translationLanguage") or _language(row, "translation"),
+            )
+            if key not in example_seen:
+                example_seen.add(key)
+                examples.append(
+                    ExampleDetail(
+                        text=value,
+                        language=_language(row, "value"),
+                        translation=_value(row, "translation"),
+                        translation_language=(
+                            _value(row, "translationLanguage")
+                            or _language(row, "translation")
+                        ),
+                        uri=_value(row, "resource"),
+                        source_graph=source_graph,
+                    )
+                )
+        elif kind in values:
+            key = (kind, value, _language(row, "value"))
+            tag = _value(row, "tag")
+            existing = value_index.get(key)
+            if existing is None:
+                detail_value = LanguageDetailValue(
+                    value=value,
+                    language=_language(row, "value"),
+                    uri=_value(row, "resource"),
+                    source_graph=source_graph,
+                    tags=[tag] if tag else [],
+                )
+                value_index[key] = detail_value
+                values[kind].append(detail_value)
+            elif tag and tag not in existing.tags:
+                existing.tags.append(tag)
+
+    relations: list[SenseRelationDetail] = []
+    relation_seen: set[tuple[str, str]] = set()
+    for relation, term, target, source_graph in relation_rows:
+        key = (relation, target)
+        if relation not in _RELATION_NAMES or key in relation_seen:
+            continue
+        relation_seen.add(key)
+        relations.append(
+            SenseRelationDetail(
+                relation=relation,
+                term=term,
+                target_uri=target,
+                language="th" if any("\u0e00" <= char <= "\u0e7f" for char in term) else "en",
+                source_graph=source_graph,
+            )
+        )
+    return SenseLanguageDetails(
+        sense_number=sense_number,
+        translations=values["translation"],
+        pronunciations=values["pronunciation"],
+        forms=values["form"],
+        romanizations=values["romanization"],
+        etymologies=values["etymology"],
+        examples=examples,
+        relations=relations,
+        quality_flags=quality_flags,
+        source_notes=source_notes,
+        license=candidate.license,
+        attribution=candidate.attribution,
+    )
+
+
 class GraphRepository:
     def __init__(self, client: SparqlClient, templates: QueryTemplates | None = None) -> None:
         self.client = client
@@ -121,20 +232,21 @@ class GraphRepository:
             )
         return results
 
-    async def detect_mentions(self, question: str, limit: int = 5) -> list[str]:
-        rendered = self.templates.render(
-            "detect_mentions",
-            QUESTION=sparql_literal(question),
-            LIMIT=sparql_int(limit, maximum=20),
-        )
-        rows = await self.client.select(rendered)
-        return [lemma for row in rows if (lemma := _value(row, "lemma"))]
+    async def lemma_inventory(self) -> list[tuple[str, int]]:
+        """Every lemma with its sense count, for the in-memory lexicon index."""
+        rows = await self.client.select(self.templates.render("lemma_inventory"))
+        return [
+            (lemma, int(_value(row, "senseCount") or 0))
+            for row in rows
+            if (lemma := _value(row, "lemma"))
+        ]
 
     async def get_senses(self, lemma: str, limit: int = 100) -> list[SenseCandidate]:
         rendered = self.templates.render(
             "sense_candidates",
             LEMMA=sparql_literal(lemma.strip()),
-            LIMIT=sparql_int(min(limit * 10, 500), maximum=500),
+            SENSE_LIMIT=sparql_int(limit, maximum=500),
+            ROW_LIMIT=sparql_int(20000, maximum=20000),
         )
         return self._map_candidates(await self.client.select(rendered))[:limit]
 
@@ -152,113 +264,58 @@ class GraphRepository:
             "sense_details", SENSE_IRI=sparql_iri(candidate.sense_uri)
         )
         rows = await self.client.select(rendered)
-        values: dict[str, list[LanguageDetailValue]] = {
-            "translation": [],
-            "pronunciation": [],
-            "form": [],
-            "romanization": [],
-            "etymology": [],
-        }
-        value_index: dict[tuple[str, str, str | None], LanguageDetailValue] = {}
-        examples: list[ExampleDetail] = []
-        example_seen: set[tuple[str, str | None, str | None, str | None]] = set()
-        quality_flags: list[str] = []
-        source_notes: list[str] = []
-        sense_number: str | None = None
-        for row in rows:
-            kind = _value(row, "kind")
-            value = _value(row, "value")
-            source_graph = _value(row, "sourceGraph") or candidate.source_graph
-            if not kind or value is None:
-                continue
-            if kind == "sense-number":
-                sense_number = sense_number or value
-            elif kind == "quality-flag":
-                if value not in quality_flags:
-                    quality_flags.append(value)
-            elif kind == "source-note":
-                if value not in source_notes:
-                    source_notes.append(value)
-            elif kind == "example":
-                key = (
-                    value,
-                    _language(row, "value"),
-                    _value(row, "translation"),
-                    _value(row, "translationLanguage") or _language(row, "translation"),
-                )
-                if key not in example_seen:
-                    example_seen.add(key)
-                    examples.append(
-                        ExampleDetail(
-                            text=value,
-                            language=_language(row, "value"),
-                            translation=_value(row, "translation"),
-                            translation_language=(
-                                _value(row, "translationLanguage")
-                                or _language(row, "translation")
-                            ),
-                            uri=_value(row, "resource"),
-                            source_graph=source_graph,
-                        )
-                    )
-            elif kind in values:
-                key = (kind, value, _language(row, "value"))
-                tag = _value(row, "tag")
-                existing = value_index.get(key)
-                if existing is None:
-                    detail_value = LanguageDetailValue(
-                        value=value,
-                        language=_language(row, "value"),
-                        uri=_value(row, "resource"),
-                        source_graph=source_graph,
-                        tags=[tag] if tag else [],
-                    )
-                    value_index[key] = detail_value
-                    values[kind].append(detail_value)
-                elif tag and tag not in existing.tags:
-                    existing.tags.append(tag)
-
         graph = semantic_graph or await self.semantic_graph(
             candidate.sense_uri, max_edges=30
         )
         node_labels = {node.uri: node.label for node in graph.nodes}
-        relations: list[SenseRelationDetail] = []
-        relation_seen: set[tuple[str, str]] = set()
-        relation_names = {
-            "synonym", "antonym", "hypernym", "hyponym", "similar",
-            "holonym", "meronym", "entails", "causes", "domainTopic",
-            "attribute", "coordinateTerm", "derivedTerm", "relatedTerm",
-        }
-        for edge in graph.edges:
-            relation = _local_name(edge.predicate)
-            key = (relation, edge.target)
-            if relation not in relation_names or key in relation_seen:
-                continue
-            relation_seen.add(key)
-            term = node_labels.get(edge.target, _local_name(edge.target))
-            relations.append(
-                SenseRelationDetail(
-                    relation=relation,
-                    term=term,
-                    target_uri=edge.target,
-                    language="th" if any("\u0e00" <= char <= "\u0e7f" for char in term) else "en",
-                    source_graph=edge.source_graph,
-                )
-            )
-        return SenseLanguageDetails(
-            sense_number=sense_number,
-            translations=values["translation"],
-            pronunciations=values["pronunciation"],
-            forms=values["form"],
-            romanizations=values["romanization"],
-            etymologies=values["etymology"],
-            examples=examples,
-            relations=relations,
-            quality_flags=quality_flags,
-            source_notes=source_notes,
-            license=candidate.license,
-            attribution=candidate.attribution,
+        relations = [
+            (_local_name(edge.predicate), node_labels.get(edge.target, _local_name(edge.target)),
+             edge.target, edge.source_graph)
+            for edge in graph.edges
+        ]
+        return _details_from_rows(rows, candidate, relations)
+
+    async def get_sense_details_batch(
+        self, candidates: list[SenseCandidate]
+    ) -> dict[str, SenseLanguageDetails]:
+        """Language details and relations for many senses in two queries."""
+        if not candidates:
+            return {}
+        by_uri = {candidate.sense_uri: candidate for candidate in candidates}
+        iris = " ".join(sparql_iri(uri) for uri in by_uri)
+        detail_rows, relation_rows = await asyncio.gather(
+            self.client.select(self.templates.render(
+                "sense_details_batch", SENSE_IRIS=iris,
+                LIMIT=sparql_int(min(20000, 200 * len(by_uri)), maximum=20000),
+            )),
+            self.client.select(self.templates.render(
+                "sense_relations_batch", SENSE_IRIS=iris,
+                LIMIT=sparql_int(min(20000, 100 * len(by_uri)), maximum=20000),
+            )),
         )
+        rows_by_sense: dict[str, list[dict[str, dict[str, str]]]] = {uri: [] for uri in by_uri}
+        for row in detail_rows:
+            sense = _value(row, "sense")
+            if sense in rows_by_sense:
+                rows_by_sense[sense].append(row)
+        relations_by_sense: dict[str, list[tuple[str, str, str, str]]] = {uri: [] for uri in by_uri}
+        for row in relation_rows:
+            sense = _value(row, "sense")
+            predicate = _value(row, "predicate")
+            target = _value(row, "object")
+            relation_graph = _value(row, "relationGraph")
+            if sense not in relations_by_sense or not all((predicate, target, relation_graph)):
+                continue
+            relations_by_sense[sense].append((
+                _local_name(predicate),
+                _value(row, "objectLabel") or _local_name(target),
+                target,
+                relation_graph,
+            ))
+        return {
+            uri: _details_from_rows(rows_by_sense[uri], candidate, relations_by_sense[uri])
+            for uri, candidate in by_uri.items()
+        }
 
     def _map_alignment(self, row: dict[str, dict[str, str]]) -> AlignmentCandidate | None:
         assertion = _value(row, "assertion")
@@ -291,18 +348,31 @@ class GraphRepository:
     async def get_alignments(
         self, lemma: str | None = None, *, limit: int = 100
     ) -> list[AlignmentCandidate]:
-        lemma_filter = (
-            f"STR(?normalizedLemma) = {sparql_literal(lemma.strip())}"
+        # Binding the lemma up front lets GraphDB use its index; a FILTER on
+        # STR(?normalizedLemma) scanned every proposal in the repository.
+        lemma_values = (
+            "VALUES ?normalizedLemma {{ {0}@th {0} }}".format(sparql_literal(lemma.strip()))
             if lemma and lemma.strip()
-            else "true"
+            else ""
         )
         rendered = self.templates.render(
             "alignment_candidates",
-            LEMMA_FILTER=lemma_filter,
+            LEMMA_VALUES=lemma_values,
             LIMIT=sparql_int(limit, maximum=500),
         )
         mapped = [self._map_alignment(row) for row in await self.client.select(rendered)]
-        return [candidate for candidate in mapped if candidate is not None]
+        by_id: dict[str, AlignmentCandidate] = {}
+        for candidate in mapped:
+            if candidate is None:
+                continue
+            current = by_id.get(candidate.candidate_id)
+            if current is None or (
+                candidate.review_status != "pending", candidate.confidence
+            ) > (
+                current.review_status != "pending", current.confidence
+            ):
+                by_id[candidate.candidate_id] = candidate
+        return list(by_id.values())
 
     async def get_review_queue(
         self, lemma: str | None = None, *, limit: int = 40
@@ -345,6 +415,9 @@ class GraphRepository:
         current = self._map_alignment(rows[0]) if rows else None
         if current is None:
             return None
+        normalized_lemma = _value(rows[0], "normalizedLemma")
+        if not normalized_lemma:
+            raise ValueError("Alignment candidate is missing its normalized lemma")
 
         predicate = decision.relation or current.recommended_relation
         predicate_iri = (
@@ -390,6 +463,7 @@ INSERT {{
       tlkg:semanticSimilarity {sparql_literal(str(current.semantic_similarity))}^^xsd:decimal ;
       tlkg:posCompatibility {sparql_literal(str(current.pos_compatibility))}^^xsd:decimal ;
       tlkg:alignmentMethod {sparql_literal(current.method)} ;
+      tlkg:normalizedLemma {sparql_literal(normalized_lemma)}@th ;
       tlkg:recommendedRelation {sparql_literal(current.recommended_relation)} ;
       tlkg:reviewStatus {sparql_iri(status_iri)} ;
       tlkg:assertionStatus {sparql_iri(assertion_status_iri)} ;
@@ -446,6 +520,7 @@ WHERE {{
                     "source_graph": source_graph,
                     "source_record_id": _value(row, "sourceRecordId"),
                     "sense_source": sense_source,
+                    "dataset": _value(row, "senseDatasetTitle"),
                     "edition": _value(row, "senseEdition"),
                     "edition_uri": _value(row, "senseEditionUri"),
                     "source_url": _value(row, "senseSourceUrl"),

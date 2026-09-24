@@ -7,7 +7,7 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX tlkg: <https://w3id.org/thailex/ontology/>
 
 SELECT DISTINCT ?sourceGraph ?entry ?sense ?concept ?lemma ?pos ?originalPos
-                ?sourceRecordId ?senseEditionUri ?senseEdition ?senseSourceUrl
+                ?sourceRecordId ?senseEditionUri ?senseEdition ?senseDatasetTitle ?senseSourceUrl
                 ?senseLicense ?senseRights ?kind ?text ?evidenceUri ?evidenceGraph
                 ?derivedFrom ?evidenceEditionUri ?evidenceEdition ?evidenceSourceUrl
                 ?evidenceLicense ?evidenceRights
@@ -31,6 +31,10 @@ WHERE {
     OPTIONAL {
       ?sense tlkg:inEdition ?senseEditionUri .
       OPTIONAL { ?senseEditionUri dcterms:title ?senseEdition }
+      OPTIONAL {
+        ?senseEditionUri prov:wasDerivedFrom ?senseDatasetUri .
+        ?senseDatasetUri dcterms:title ?senseDatasetTitle .
+      }
     }
     OPTIONAL { ?sense tlkg:sourceRecordId ?directSourceRecordId }
     OPTIONAL {
@@ -104,19 +108,21 @@ WHERE {
       BIND("synset-example" AS ?kind)
       BIND(?englishConcept AS ?evidenceUri)
     }
-  }
-
-  OPTIONAL {
-    GRAPH ?evidenceGraph {
-      ?evidenceUri tlkg:inEdition ?evidenceEditionUri .
-      OPTIONAL { ?evidenceEditionUri dcterms:title ?evidenceEdition }
+    # Nested here so they run only when evidence was found. At the top level,
+    # a sense without evidence leaves ?evidenceUri and ?evidenceGraph unbound
+    # and these patterns would match every edition triple in the repository.
+    OPTIONAL {
+      GRAPH ?evidenceGraph {
+        ?evidenceUri tlkg:inEdition ?evidenceEditionUri .
+        OPTIONAL { ?evidenceEditionUri dcterms:title ?evidenceEdition }
+      }
     }
-  }
-  OPTIONAL {
-    GRAPH ?evidenceGraph {
-      ?evidenceDataset dcterms:source ?evidenceSourceUrl .
-      OPTIONAL { ?evidenceDataset dcterms:license ?evidenceLicense }
-      OPTIONAL { ?evidenceDataset dcterms:rights ?evidenceRights }
+    OPTIONAL {
+      GRAPH ?evidenceGraph {
+        ?evidenceDataset dcterms:source ?evidenceSourceUrl .
+        OPTIONAL { ?evidenceDataset dcterms:license ?evidenceLicense }
+        OPTIONAL { ?evidenceDataset dcterms:rights ?evidenceRights }
+      }
     }
   }
 }

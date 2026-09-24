@@ -1,0 +1,83 @@
+PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX tlkg: <https://w3id.org/thailex/ontology/>
+
+SELECT DISTINCT ?sense ?senseGraph ?concept ?conceptLabel ?englishConcept ?englishLabel
+                ?predicate ?object ?objectLabel ?objectLanguage ?relationGraph ?linkGraph
+                ?objectLabelGraph
+WHERE {
+  VALUES ?sense { {{SENSE_IRIS}} }
+  GRAPH ?senseGraph {
+    ?sense ontolex:reference ?concept .
+    OPTIONAL { ?concept (skos:prefLabel|rdfs:label) ?conceptLabel }
+  }
+  FILTER(?senseGraph IN (
+    <https://w3id.org/thailex/graph/lexitron>,
+    <https://w3id.org/thailex/graph/thai-wordnet>,
+    <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+    <https://w3id.org/thailex/graph/th-wiktionary>
+  ) || STRSTARTS(STR(?senseGraph), "https://w3id.org/thailex/graph/organizer/"))
+  {
+    GRAPH ?relationGraph {
+      ?concept ?predicate ?object .
+      VALUES ?predicate {
+        tlkg:synonym tlkg:antonym tlkg:hypernym tlkg:hyponym tlkg:similar
+        tlkg:holonym tlkg:meronym tlkg:entails tlkg:causes
+        tlkg:domainTopic tlkg:attribute tlkg:coordinateTerm tlkg:derivedTerm
+        tlkg:relatedTerm
+      }
+      OPTIONAL {
+        GRAPH ?objectLabelGraph {
+          ?object (skos:prefLabel|rdfs:label) ?directLabel
+        }
+        FILTER(LANG(?directLabel) = "th" || LANG(?directLabel) = "")
+      }
+    }
+    FILTER(?relationGraph IN (
+      <https://w3id.org/thailex/graph/lexitron>,
+      <https://w3id.org/thailex/graph/thai-wordnet>,
+      <https://w3id.org/thailex/graph/en-wiktionary-thai-entries>,
+      <https://w3id.org/thailex/graph/th-wiktionary>
+    ) || STRSTARTS(STR(?relationGraph), "https://w3id.org/thailex/graph/organizer/"))
+    BIND(?directLabel AS ?objectLabel)
+    BIND(LANG(?directLabel) AS ?objectLanguage)
+  }
+  UNION
+  {
+    GRAPH <https://w3id.org/thailex/graph/thai-wordnet> {
+      ?concept skos:exactMatch ?englishConcept
+    }
+    BIND(<https://w3id.org/thailex/graph/thai-wordnet> AS ?linkGraph)
+    OPTIONAL {
+      GRAPH <https://w3id.org/thailex/graph/omw-en> {
+        ?englishConcept (skos:prefLabel|rdfs:label) ?englishLabelValue .
+        FILTER(LANG(?englishLabelValue) = "en" || LANG(?englishLabelValue) = "")
+      }
+    }
+    GRAPH <https://w3id.org/thailex/graph/omw-en> {
+      ?englishConcept ?predicate ?object .
+      VALUES ?predicate {
+        tlkg:hypernym tlkg:hyponym tlkg:similar tlkg:holonym tlkg:meronym
+        tlkg:entails tlkg:causes tlkg:domainTopic tlkg:attribute
+      }
+      OPTIONAL {
+        ?object (skos:prefLabel|rdfs:label) ?fallbackEnglishLabel .
+        FILTER(LANG(?fallbackEnglishLabel) = "en" || LANG(?fallbackEnglishLabel) = "")
+      }
+    }
+    BIND(<https://w3id.org/thailex/graph/omw-en> AS ?relationGraph)
+    OPTIONAL {
+      GRAPH <https://w3id.org/thailex/graph/thai-wordnet> {
+        ?thaiTarget skos:exactMatch ?object ;
+          (skos:prefLabel|rdfs:label) ?thaiLabel .
+        FILTER(LANG(?thaiLabel) = "th")
+      }
+    }
+    BIND(COALESCE(?thaiLabel, ?fallbackEnglishLabel) AS ?objectLabel)
+    BIND(LANG(?objectLabel) AS ?objectLanguage)
+    BIND(?englishLabelValue AS ?englishLabel)
+  }
+}
+ORDER BY ?sense ?predicate ?object
+LIMIT {{LIMIT}}

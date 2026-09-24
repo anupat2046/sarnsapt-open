@@ -5,9 +5,9 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX tlkg: <https://w3id.org/thailex/ontology/>
 PREFIX vartrans: <http://www.w3.org/ns/lemon/vartrans#>
 
-SELECT DISTINCT ?kind ?value ?resource ?sourceGraph ?tag ?translation ?translationLanguage
+SELECT DISTINCT ?sense ?kind ?value ?resource ?sourceGraph ?tag ?translation ?translationLanguage
 WHERE {
-  VALUES ?sense { {{SENSE_IRI}} }
+  VALUES ?sense { {{SENSE_IRIS}} }
   GRAPH ?sourceGraph {
     ?entry ontolex:sense ?sense .
     {
@@ -79,5 +79,5 @@ WHERE {
     <https://w3id.org/thailex/graph/th-wiktionary>
   ) || STRSTARTS(STR(?sourceGraph), "https://w3id.org/thailex/graph/organizer/"))
 }
-ORDER BY ?kind ?resource ?value
-LIMIT 500
+ORDER BY ?sense ?kind ?resource ?value
+LIMIT {{LIMIT}}
