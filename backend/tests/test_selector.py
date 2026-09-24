@@ -119,7 +119,7 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 payload["model"], "Pathumma-ThaiLLM-qwen3-8b-think-3.0.0"
             )
-            task = json.loads(payload["messages"][1]["content"])
+            task = json.loads(payload["messages"][-1]["content"])
             self.assertEqual(task["conversation_history"][0]["role"], "user")
             self.assertEqual(task["candidates"][0]["candidate_id"], "S1")
             self.assertEqual(
@@ -190,7 +190,7 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
             parsed["selected_sense_uri"], "https://example.test/sense/1"
         )
 
-    async def test_thaillm_uses_one_call_and_rejects_invalid_json(self) -> None:
+    async def test_thaillm_retries_once_then_rejects_invalid_json(self) -> None:
         candidates = [candidate("https://example.test/sense/1", 0.9, "ev-1")]
         calls: list[dict] = []
 
@@ -214,11 +214,12 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
                 await selector.select("พ่อขันนอต", candidates)
         finally:
             await selector.close()
-        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("missing_json_object", calls[1]["messages"][-1]["content"])
         self.assertEqual(caught.exception.code, "missing_json_object")
-        self.assertEqual(caught.exception.attempts, 1)
+        self.assertEqual(caught.exception.attempts, 2)
 
-    async def test_thaillm_reports_safe_reason_without_retry(self) -> None:
+    async def test_thaillm_reports_safe_reason_after_retry(self) -> None:
         candidates = [candidate("https://example.test/sense/1", 0.9, "ev-1")]
 
         def handler(_: httpx.Request) -> httpx.Response:
@@ -240,7 +241,76 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await selector.close()
         self.assertEqual(caught.exception.code, "missing_json_object")
-        self.assertEqual(caught.exception.attempts, 1)
+        self.assertEqual(caught.exception.attempts, 2)
+
+    async def test_thaillm_second_attempt_can_succeed(self) -> None:
+        candidates = [candidate("https://example.test/sense/1", 0.9, "ev-1")]
+        replies = iter([
+            "ไม่มี JSON",
+            json.dumps({
+                "intent": "define", "selected_candidate_id": "S1", "confidence": 0.8,
+                "cue_words": [], "rationale": "ตรงบริบท", "evidence_refs": ["S1-E1"],
+                "grounded_answer": "คำว่า ขัน หมายถึงหมุนสิ่งยึดให้แน่น",
+            }, ensure_ascii=False),
+        ])
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"choices": [{"message": {"content": next(replies)}}]})
+
+        selector = ThaiLLMChatSenseSelector(api_key="k", model="m", base_url="https://api.test/api/v1")
+        await selector._client.aclose()
+        selector._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        try:
+            decision = await selector.select("พ่อขันนอต", candidates)
+        finally:
+            await selector.close()
+        self.assertEqual(decision.selected_sense_uri, "https://example.test/sense/1")
+
+    async def test_thaillm_retries_gateway_errors_but_not_rate_limit(self) -> None:
+        candidates = [candidate("https://example.test/sense/1", 0.9, "ev-1")]
+        for status, expected_calls in ((502, 3), (429, 1)):
+            calls = []
+
+            def handler(request: httpx.Request) -> httpx.Response:
+                calls.append(request)
+                return httpx.Response(status, json={"error": "x"})
+
+            selector = ThaiLLMChatSenseSelector(
+                api_key="k", model="m", base_url="https://api.test/api/v1",
+                retry_delay_seconds=0,
+            )
+            await selector._client.aclose()
+            selector._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            try:
+                with self.assertRaises(httpx.HTTPStatusError):
+                    await selector.select("พ่อขันนอต", candidates)
+            finally:
+                await selector.close()
+            self.assertEqual(len(calls), expected_calls, status)
+
+    async def test_outage_pauses_calls_so_next_question_falls_back_at_once(self) -> None:
+        from thailex_api.selector import ThaiLLMUnavailableError
+
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return httpx.Response(502, text="<title>thaillm.or.th | 502: Bad gateway</title>")
+
+        selector = ThaiLLMChatSenseSelector(
+            api_key="k", model="m", base_url="https://api.test/api/v1",
+            retry_delay_seconds=0, outage_cooldown_seconds=60,
+        )
+        await selector._client.aclose()
+        selector._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        try:
+            with self.assertRaises(httpx.HTTPStatusError):
+                await selector.analyze("ดาว")
+            with self.assertRaises(ThaiLLMUnavailableError):
+                await selector.analyze("ขัน")
+        finally:
+            await selector.close()
+        self.assertEqual(len(calls), 3)
 
     def test_thaillm_compare_compacts_valid_evidence_with_candidate_diversity(self) -> None:
         candidates = {
@@ -273,6 +343,45 @@ class SelectorTests(unittest.IsolatedAsyncioTestCase):
             result.evidence_ids[:4],
             ["ev-1-1", "ev-2-1", "ev-3-1", "ev-4-1"],
         )
+
+    def test_invented_refs_are_dropped_but_other_sense_evidence_is_rejected(self) -> None:
+        first = candidate("https://example.test/sense/1", 0.9, "ev-1")
+        aliases = {"S1": first}
+        evidence = {"S1-E1": ("S1", "ev-1")}
+        base = {
+            "selected_candidate_id": None, "confidence": 0.8, "cue_words": [],
+            "rationale": "ข้อมูลคำ", "grounded_answer": "คำว่า ขัน ออกเสียงว่า /khan/",
+        }
+        decision = ThaiLLMChatSenseSelector._validate_contract(
+            {**base, "intent": "word_info", "evidence_refs": ["S1-E1", "S3-E9"]},
+            candidate_by_alias=aliases, evidence_by_alias=evidence,
+        )
+        self.assertEqual(decision.evidence_ids, ["ev-1"])
+        defined = ThaiLLMChatSenseSelector._validate_contract(
+            {**base, "intent": "define", "selected_candidate_id": "S1", "evidence_refs": ["S3-E9"]},
+            candidate_by_alias=aliases, evidence_by_alias=evidence,
+        )
+        self.assertEqual(defined.evidence_ids, ["ev-1"])
+        second = candidate("https://example.test/sense/2", 0.9, "ev-2")
+        with self.assertRaises(ThaiLLMStructuredOutputError):
+            ThaiLLMChatSenseSelector._validate_contract(
+                {**base, "intent": "define", "selected_candidate_id": "S1", "evidence_refs": ["S2-E1"]},
+                candidate_by_alias={"S1": first, "S2": second},
+                evidence_by_alias={**evidence, "S2-E1": ("S2", "ev-2")},
+            )
+
+    def test_question_type_and_context_map_to_one_intent(self) -> None:
+        from thailex_api.selector import QueryAnalysis
+
+        def intent(**fields):
+            return QueryAnalysis.model_validate({"kind": "lexical", "target_word": "ดาว", **fields}).intent
+
+        self.assertEqual(intent(question_type="meaning", has_context=True), "define")
+        self.assertEqual(intent(question_type="meaning", has_context=False), "define_all")
+        self.assertEqual(intent(question_type="relations"), "related")
+        self.assertEqual(intent(question_type="compare_sources"), "compare")
+        self.assertEqual(intent(question_type="word_properties"), "word_info")
+        self.assertEqual(intent(intent="related"), "related")
 
     def test_thaillm_define_all_does_not_select_one_sense(self) -> None:
         candidates = {

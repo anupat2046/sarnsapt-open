@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ApiModel(BaseModel):
@@ -41,6 +41,7 @@ class SenseCandidate(ApiModel):
     source_graph: str
     source_record_id: str | None = None
     sense_source: str | None = None
+    dataset: str | None = None
     edition: str | None = None
     edition_uri: str | None = None
     source_url: str | None = None
@@ -48,6 +49,8 @@ class SenseCandidate(ApiModel):
     attribution: str | None = None
     evidence: list[EvidenceItem] = Field(default_factory=list)
     retrieval_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    context_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    context_cues: list[str] = Field(default_factory=list)
 
 
 class SearchItem(ApiModel):
@@ -180,7 +183,7 @@ class SelectionDecision(ApiModel):
     rationale: str
     evidence_ids: list[str] = Field(default_factory=list)
     selector: Literal["heuristic", "openai", "thaillm", "none"]
-    intent: Literal["define", "define_all", "related", "compare"] | None = None
+    intent: Literal["conversation", "define", "define_all", "related", "compare", "word_info"] | None = None
     cue_words: list[str] = Field(default_factory=list)
     grounded_answer: str | None = None
 
@@ -196,6 +199,7 @@ class Citation(ApiModel):
     sense_source: str | None = None
     evidence_source: str | None = None
     evidence_language: str | None = None
+    dataset: str | None = None
     edition: str | None = None
     source_url: str | None = None
     license: str | None = None
@@ -218,6 +222,7 @@ class SourceSupport(ApiModel):
     evidence_source: str | None = None
     evidence_language: str | None = None
     source_graph: str | None = None
+    dataset: str | None = None
     edition: str | None = None
     source_url: str | None = None
     license: str | None = None
@@ -239,7 +244,7 @@ class ReasoningStep(ApiModel):
 
 
 class AnswerDetail(ApiModel):
-    intent: Literal["define", "define_all", "related", "compare"]
+    intent: Literal["conversation", "define", "define_all", "related", "compare", "word_info"]
     title: str
     summary: str
     explanation: str
@@ -269,6 +274,15 @@ class AskTimings(ApiModel):
 class ConversationTurn(ApiModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _shorten_long_turn(cls, value: object) -> object:
+        # A full meaning listing can exceed the limit; the model only needs the
+        # start of earlier turns, so shorten instead of rejecting the request.
+        if isinstance(value, str) and len(value) > 2000:
+            return value[:1998].rstrip() + " …"
+        return value
 
 
 class AskRequest(ApiModel):
@@ -312,3 +326,47 @@ class HealthResponse(ApiModel):
     llm_configured: bool
     llm_provider: Literal["openai", "thaillm"] | None = None
     llm_model: str | None = None
+
+
+class EntryAlignmentLink(ApiModel):
+    """A proposed or reviewed link from one source sense to a sense in another source."""
+
+    other_sense_uri: str
+    other_source_name: str
+    other_definition: str | None = None
+    relation: Literal["exactMatch", "closeMatch", "possiblySameSense"]
+    review_status: Literal["pending", "approved"]
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class EntrySense(ApiModel):
+    candidate: SenseCandidate
+    details: SenseLanguageDetails
+    alignments: list[EntryAlignmentLink] = Field(default_factory=list)
+
+
+class EntrySourceGroup(ApiModel):
+    source: str
+    source_graph: str
+    name: str
+    dataset: str | None = None
+    edition: str | None = None
+    source_url: str | None = None
+    license: str | None = None
+    attribution: str | None = None
+    senses: list[EntrySense] = Field(default_factory=list)
+
+
+class DictionaryEntryResponse(ApiModel):
+    query: str
+    lemma: str | None
+    found: bool
+    resolved_from: Literal["exact", "sentence"] | None = None
+    sense_count: int = 0
+    source_count: int = 0
+    parts_of_speech: list[str] = Field(default_factory=list)
+    pronunciations: list[LanguageDetailValue] = Field(default_factory=list)
+    romanizations: list[LanguageDetailValue] = Field(default_factory=list)
+    groups: list[EntrySourceGroup] = Field(default_factory=list)
+    suggestions: list[SearchItem] = Field(default_factory=list)
+    truncated: bool = False
