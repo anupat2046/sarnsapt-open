@@ -31,7 +31,18 @@ docker compose --profile frontend up -d --build
 ./scripts/ingest-organizer.ps1 -InputPath ./examples/sample-dictionary.csv -MappingPath ./examples/sample-dictionary.mapping.json
 ```
 
-สคริปต์ทำ audit → normalize → validate → RDF → import เข้า named graph ตาม `source.id` และ `edition_id` หาก graph เดิมมีข้อมูลแล้ว สคริปต์จะหยุดโดยไม่ลบข้อมูล หากตั้งใจแทนที่ให้ใช้ `-ReplaceExisting` ซึ่งจะสำรอง graph เดิมใน `data/rdf/backup/` ก่อนนำเข้า ไฟล์นั้นก็ถูก Git ignore
+หากต้องการลองจับคู่ข้ามแหล่งแบบไม่ใช้ข้อมูลจริง ให้นำเข้าชุดสังเคราะห์อีกชุดด้วย:
+
+```powershell
+./scripts/ingest-organizer.ps1 -InputPath ./examples/sample-glossary.csv -MappingPath ./examples/sample-glossary.mapping.json
+Invoke-RestMethod 'http://localhost:8000/api/alignments?lemma=ดาว'
+```
+
+ตัวอย่างนี้ควรได้ข้อเสนอ “ดาว” ความหมายวัตถุบนท้องฟ้า 1 คู่ในสถานะ `pending`; ความหมายเครื่องหมายตกแต่งไม่ควรถูกเชื่อม ทั้งสองไฟล์ใน `examples/` เป็นข้อมูลสังเคราะห์เท่านั้น
+
+สคริปต์ทำ audit → normalize → validate → RDF → import เข้า named graph ตาม `source.id` และ `edition_id` แล้วสร้างข้อเสนอเชื่อมความหมายข้ามแหล่งโดยอัตโนมัติสำหรับคำไทยที่มีหลักฐานเทียบกันได้ ข้อเสนอนี้ใช้เส้น `possiblySameSense` และมีสถานะ “รอตรวจ” ไม่ใช่คำยืนยันว่าเป็นความหมายเดียวกัน ระบบไม่เปลี่ยนคะแนนสูงให้เป็น `exactMatch` เอง และไม่เขียนทับผลตรวจของมนุษย์ หากไม่ต้องการรันการจับคู่อัตโนมัติในรอบนั้นให้ใส่ `-SkipAutoAlignment`
+
+หาก graph เดิมมีข้อมูลแล้ว สคริปต์จะหยุดโดยไม่ลบข้อมูล หากตั้งใจแทนที่ให้ใช้ `-ReplaceExisting` ซึ่งจะสำรอง graph เดิมใน `data/rdf/backup/` ก่อนนำเข้า ไฟล์นั้นก็ถูก Git ignore
 
 `XLSX` และ `DOCX` ยังไม่มีตัวอ่านทั่วไปในโปรเจกต์นี้ ต้องแปลงเป็นรูปแบบข้างต้นหรือเพิ่ม parser เฉพาะแหล่งก่อน ห้ามอ้างว่ารองรับทุกชุดข้อมูลโดยไม่ทำ mapping และตรวจสิทธิ์
 
@@ -56,6 +67,15 @@ python -m unittest discover -s tests -q
 python -m unittest discover -s backend/tests -q
 ./scripts/test-frontend.ps1
 ```
+
+ชุดทดสอบสดของ `/api/ask` และแบบทดสอบเทียบว่ากราฟช่วยให้โมเดลเดิมตอบดีขึ้นแค่ไหน (ต้องเปิดระบบและตั้ง `THAILLM_API_KEY` ก่อน)
+
+```powershell
+python scripts/eval-ask.py
+python scripts/bench-grounded.py --per-stratum 12 --judge
+```
+
+วิธีอ่านผลและข้อจำกัดอยู่ใน [แบบทดสอบ](docs/BENCHMARK.md)
 
 ## ก่อนเผยแพร่บน GitHub
 
