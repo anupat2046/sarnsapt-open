@@ -24,6 +24,15 @@ const lexicalRelations = new Set([
   "coordinateTerm", "derivedTerm",
 ]);
 
+export function hasRenderableRelations(graph: GraphResult, selectedUri?: string | null): boolean {
+  const nodeUris = new Set(graph.nodes.map((node) => node.uri));
+  return graph.edges.some(
+    (edge) => lexicalRelations.has(uriTail(edge.predicate))
+      && nodeUris.has(edge.target)
+      && edge.target !== selectedUri,
+  );
+}
+
 const relationLabels: Record<string, string> = {
   synonym: "คำพ้อง", antonym: "คำตรงข้าม", hypernym: "คำกว้างกว่า",
   hyponym: "คำเฉพาะกว่า", similar: "ความหมายใกล้เคียง",

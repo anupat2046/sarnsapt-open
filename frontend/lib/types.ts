@@ -34,6 +34,7 @@ export interface SenseCandidate {
   source_graph: string;
   source_record_id: string | null;
   sense_source: string | null;
+  dataset?: string | null;
   edition: string | null;
   edition_uri: string | null;
   source_url: string | null;
@@ -41,6 +42,8 @@ export interface SenseCandidate {
   attribution: string | null;
   evidence: EvidenceItem[];
   retrieval_score: number;
+  context_score?: number;
+  context_cues?: string[];
 }
 
 export interface GraphNode {
@@ -76,6 +79,7 @@ export interface Citation {
   sense_source: string | null;
   evidence_source: string | null;
   evidence_language: string | null;
+  dataset?: string | null;
   edition: string | null;
   source_url: string | null;
   license: string | null;
@@ -101,6 +105,7 @@ export interface SourceSupport {
   evidence_source: string | null;
   evidence_language: string | null;
   source_graph: string | null;
+  dataset?: string | null;
   edition: string | null;
   source_url: string | null;
   license: string | null;
@@ -122,7 +127,7 @@ export interface ReasoningStep {
 }
 
 export interface AnswerDetail {
-  intent: "define" | "define_all" | "related" | "compare";
+  intent: "conversation" | "define" | "define_all" | "related" | "compare" | "word_info";
   title: string;
   summary: string;
   explanation: string;
@@ -159,7 +164,7 @@ export interface AskResponse {
     rationale: string;
     evidence_ids: string[];
     selector: "heuristic" | "openai" | "thaillm" | "none";
-    intent: "define" | "define_all" | "related" | "compare" | null;
+    intent: "conversation" | "define" | "define_all" | "related" | "compare" | "word_info" | null;
     cue_words: string[];
     grounded_answer: string | null;
   };
@@ -274,4 +279,52 @@ export interface SenseLanguageDetails {
   source_notes: string[];
   license: string | null;
   attribution: string | null;
+}
+
+export interface EntryAlignmentLink {
+  other_sense_uri: string;
+  other_source_name: string;
+  other_definition: string | null;
+  relation: "exactMatch" | "closeMatch" | "possiblySameSense";
+  review_status: "pending" | "approved";
+  confidence: number;
+}
+
+export interface EntrySense {
+  candidate: SenseCandidate;
+  details: SenseLanguageDetails;
+  alignments: EntryAlignmentLink[];
+}
+
+export interface EntrySourceGroup {
+  source: string;
+  source_graph: string;
+  name: string;
+  dataset: string | null;
+  edition: string | null;
+  source_url: string | null;
+  license: string | null;
+  attribution: string | null;
+  senses: EntrySense[];
+}
+
+export interface SearchItem {
+  lemma: string;
+  sense_count: number;
+  sources: string[];
+}
+
+export interface DictionaryEntryResponse {
+  query: string;
+  lemma: string | null;
+  found: boolean;
+  resolved_from: "exact" | "sentence" | null;
+  sense_count: number;
+  source_count: number;
+  parts_of_speech: string[];
+  pronunciations: LanguageDetailValue[];
+  romanizations: LanguageDetailValue[];
+  groups: EntrySourceGroup[];
+  suggestions: SearchItem[];
+  truncated: boolean;
 }

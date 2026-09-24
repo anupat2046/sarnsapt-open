@@ -2,6 +2,7 @@ import type {
   AlignmentsResponse,
   AskResponse,
   ConversationTurn,
+  DictionaryEntryResponse,
   ReviewDecision,
   ReviewQueueResponse,
   SenseDetailResponse,
@@ -32,6 +33,7 @@ export function askQuestion(
   history: ConversationTurn[] = [],
   contextLemma?: string | null,
   contextSenseUri?: string | null,
+  options: { useLlm?: boolean; lemma?: string } = {},
 ): Promise<AskResponse> {
   return request<AskResponse>("/api/ask", {
     method: "POST",
@@ -40,6 +42,8 @@ export function askQuestion(
       hops: 2,
       max_candidates: 12,
       history: history.slice(-12),
+      use_llm: options.useLlm,
+      lemma: options.lemma,
       context_lemma: contextLemma || undefined,
       context_sense_uri: contextSenseUri || undefined,
     }),
@@ -54,6 +58,11 @@ export function getSense(uri: string): Promise<SenseDetailResponse> {
 export function getSenseDetails(uri: string): Promise<SenseDetailResponse> {
   const params = new URLSearchParams({ uri, hops: "2" });
   return request<SenseDetailResponse>(`/api/sense/details?${params}`);
+}
+
+export function getEntry(query: string): Promise<DictionaryEntryResponse> {
+  const params = new URLSearchParams({ q: query });
+  return request<DictionaryEntryResponse>(`/api/entry?${params}`);
 }
 
 export function getSenses(lemma: string): Promise<SensesResponse> {

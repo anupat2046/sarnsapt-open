@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
@@ -8,10 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import Settings
+from .entry import EntryBuilder
+from .lexicon import LexiconIndex
 from .models import (
     AlignmentsResponse,
     AskRequest,
     AskResponse,
+    DictionaryEntryResponse,
     HealthResponse,
     ReviewDecisionRequest,
     ReviewDecisionResponse,
@@ -37,6 +41,7 @@ class AppContainer:
     settings: Settings
     repository: GraphRepository
     ask_service: AskService
+    entry_builder: EntryBuilder
     llm_selector: OpenAIResponsesSenseSelector | ThaiLLMChatSenseSelector | None = None
 
     async def close(self) -> None:
@@ -54,6 +59,8 @@ def build_container(settings: Settings) -> AppContainer:
         QueryTemplates(),
     )
     heuristic = HeuristicSenseSelector()
+    lexicon = LexiconIndex(repository, ttl_seconds=settings.lexicon_ttl_seconds)
+    retriever = CandidateRetriever(repository, lexicon)
     llm_selector: OpenAIResponsesSenseSelector | ThaiLLMChatSenseSelector | None = None
     if settings.selector_mode == "openai" and settings.openai_ready:
         llm_selector = OpenAIResponsesSenseSelector(
@@ -73,7 +80,7 @@ def build_container(settings: Settings) -> AppContainer:
         )
     ask_service = AskService(
         repository=repository,
-        retriever=CandidateRetriever(repository),
+        retriever=retriever,
         heuristic_selector=heuristic,
         llm_selector=llm_selector,
         default_to_llm=settings.selector_mode in {"openai", "thaillm"},
@@ -85,6 +92,7 @@ def build_container(settings: Settings) -> AppContainer:
         settings=settings,
         repository=repository,
         ask_service=ask_service,
+        entry_builder=EntryBuilder(repository, retriever, lexicon),
         llm_selector=llm_selector,
     )
 
@@ -99,7 +107,9 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.container = resolved_container
+        warm_up = asyncio.create_task(resolved_container.entry_builder.lexicon.warm())
         yield
+        warm_up.cancel()
         if owns_container:
             await resolved_container.close()
 
@@ -172,6 +182,15 @@ def create_app(
             lemma=lemma,
             candidates=await current.repository.get_senses(lemma, limit=limit),
         )
+
+    @app.get("/api/entry", response_model=DictionaryEntryResponse, tags=["lexicon"])
+    async def entry(
+        request: Request,
+        q: str = Query(min_length=1, max_length=200),
+    ) -> DictionaryEntryResponse:
+        """Every sense of a word, grouped by source, with full language details."""
+        current: AppContainer = request.app.state.container
+        return await current.entry_builder.build(q)
 
     @app.get("/api/sense", response_model=SenseDetailResponse, tags=["lexicon"])
     @app.get("/api/sense/details", response_model=SenseDetailResponse, tags=["lexicon"])
