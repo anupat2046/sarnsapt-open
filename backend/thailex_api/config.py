@@ -6,10 +6,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    sparql_endpoint: str = "http://localhost:7200/repositories/thailex"
+    sparql_endpoint: str = "http://127.0.0.1:7200/repositories/thailex"
     selector_mode: str = "heuristic"
     request_timeout_seconds: float = 30.0
     max_graph_edges: int = 50
+    lexicon_ttl_seconds: float = 300.0
     openai_api_key: str | None = None
     openai_model: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
@@ -32,6 +33,9 @@ class Settings:
         request_timeout = float(os.getenv("THAILEX_REQUEST_TIMEOUT_SECONDS", "30"))
         if request_timeout <= 0:
             raise ValueError("THAILEX_REQUEST_TIMEOUT_SECONDS must be greater than 0")
+        lexicon_ttl = float(os.getenv("THAILEX_LEXICON_TTL_SECONDS", "300"))
+        if lexicon_ttl < 0:
+            raise ValueError("THAILEX_LEXICON_TTL_SECONDS must not be negative")
         thaillm_max_tokens = int(os.getenv("THAILLM_MAX_TOKENS", "1200"))
         if not 64 <= thaillm_max_tokens <= 4096:
             raise ValueError("THAILLM_MAX_TOKENS must be between 64 and 4096")
@@ -41,11 +45,12 @@ class Settings:
         return cls(
             sparql_endpoint=os.getenv(
                 "THAILEX_SPARQL_ENDPOINT",
-                "http://localhost:7200/repositories/thailex",
+                "http://127.0.0.1:7200/repositories/thailex",
             ).rstrip("/"),
             selector_mode=mode,
             request_timeout_seconds=request_timeout,
             max_graph_edges=max_edges,
+            lexicon_ttl_seconds=lexicon_ttl,
             openai_api_key=os.getenv("OPENAI_API_KEY") or None,
             openai_model=os.getenv("OPENAI_MODEL") or None,
             openai_base_url=os.getenv(

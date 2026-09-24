@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$BaseUrl = "http://localhost:7200",
+    [string]$BaseUrl = "http://127.0.0.1:7200",
     [string]$RepositoryId = "thailex"
 )
 

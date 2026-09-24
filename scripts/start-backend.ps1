@@ -28,7 +28,7 @@ if (Test-Path -LiteralPath $envFile) {
 }
 
 if (-not $env:THAILEX_SPARQL_ENDPOINT) {
-    $env:THAILEX_SPARQL_ENDPOINT = "http://localhost:7200/repositories/thailex"
+    $env:THAILEX_SPARQL_ENDPOINT = "http://127.0.0.1:7200/repositories/thailex"
 }
 
 $arguments = @(
